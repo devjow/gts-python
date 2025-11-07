@@ -62,9 +62,11 @@ DEFAULT_GTS_CONFIG = GtsConfig(
     schema_id_fields=[
         "$schema",
         "gtsTid",
+        "gtsType",
         "gtsT",
         "gts_t",
         "gts_tid",
+        "gts_type",
         "type",
         "schema",
     ],
