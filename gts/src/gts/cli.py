@@ -94,6 +94,7 @@ def main(argv: List[str] | None = None) -> None:
                 host=_host,
                 port=_port,
                 log_level=("info" if args.verbose else "warning"),
+                access_log=False,
             )
             return
         elif args.op == "openapi-spec":

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List
+import sys
 
 from fastapi import FastAPI, Body, Query
 from fastapi.responses import JSONResponse
@@ -12,6 +13,25 @@ import logging
 from .ops import GtsOps
 
 
+# ANSI color codes
+class Colors:
+    # Check if output is a TTY (terminal)
+    _USE_COLORS = sys.stderr.isatty()
+
+    RESET = "\033[0m" if _USE_COLORS else ""
+    BOLD = "\033[1m" if _USE_COLORS else ""
+    DIM = "\033[2m" if _USE_COLORS else ""
+
+    # Status code colors
+    GREEN = "\033[92m" if _USE_COLORS else ""      # 2xx success
+    YELLOW = "\033[93m" if _USE_COLORS else ""     # 3xx redirect
+    RED = "\033[91m" if _USE_COLORS else ""        # 4xx, 5xx errors
+    CYAN = "\033[96m" if _USE_COLORS else ""       # Method
+    BLUE = "\033[94m" if _USE_COLORS else ""       # Path
+    MAGENTA = "\033[95m" if _USE_COLORS else ""    # Duration
+    GRAY = "\033[90m" if _USE_COLORS else ""       # DEBUG content
+
+
 class _RequestLoggingMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: FastAPI, verbose: int) -> None:
         super().__init__(app)
@@ -20,13 +40,96 @@ class _RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         if not self.verbose:
             return await call_next(request)
+
         start = time.time()
+
+        # Cache request body for DEBUG logging (verbose >= 2)
+        cached_body = None
+        if self.verbose >= 2:
+            # Read and cache the request body
+            cached_body = await request.body()
+
+            # Create a new request with the cached body
+            from starlette.requests import Request
+
+            async def receive():
+                return {"type": "http.request", "body": cached_body}
+
+            request = Request(request.scope, receive)
+
         response = await call_next(request)
         dur = (time.time() - start) * 1000.0
+
+        # Determine status color
+        if 200 <= response.status_code < 300:
+            status_color = Colors.GREEN
+        elif 300 <= response.status_code < 400:
+            status_color = Colors.YELLOW
+        else:
+            status_color = Colors.RED
+
+        # Log response at INFO level (verbose >= 1)
         logging.info(
-            f"{request.method} {request.url.path} -> {response.status_code} "
-            f"in {dur:.1f}ms"
+            f"{Colors.CYAN}{request.method}{Colors.RESET} "
+            f"{Colors.BLUE}{request.url.path}{Colors.RESET} -> "
+            f"{status_color}{response.status_code}{Colors.RESET} "
+            f"in {Colors.MAGENTA}{dur:.1f}ms{Colors.RESET}"
         )
+
+        # Log request body at DEBUG level (verbose >= 2)
+        if self.verbose >= 2 and cached_body:
+            try:
+                import json
+                body_json = json.loads(cached_body.decode('utf-8'))
+                body_str = json.dumps(body_json, indent=2)
+                logging.debug(
+                    f"{Colors.DIM}Request body:{Colors.RESET}\n"
+                    f"{Colors.GRAY}{body_str}{Colors.RESET}"
+                )
+            except Exception:
+                body_str = cached_body.decode('utf-8', errors='replace')
+                logging.debug(
+                    f"{Colors.DIM}Request body (raw):{Colors.RESET}\n"
+                    f"{Colors.GRAY}{body_str}{Colors.RESET}"
+                )
+
+        # Log response body at DEBUG level (verbose >= 2)
+        if self.verbose >= 2:
+            # Read response body
+            from starlette.responses import StreamingResponse, Response
+            if isinstance(response, (Response, StreamingResponse)):
+                response_body = b""
+                async for chunk in response.body_iterator:
+                    response_body += chunk
+
+                if response_body:
+                    try:
+                        import json
+                        body_json = json.loads(
+                            response_body.decode('utf-8')
+                        )
+                        body_str = json.dumps(body_json, indent=2)
+                        logging.debug(
+                            f"{Colors.DIM}Response body:{Colors.RESET}\n"
+                            f"{Colors.GRAY}{body_str}{Colors.RESET}"
+                        )
+                    except Exception:
+                        body_str = response_body.decode(
+                            'utf-8', errors='replace'
+                        )
+                        logging.debug(
+                            f"{Colors.DIM}Response body (raw):{Colors.RESET}\n"
+                            f"{Colors.GRAY}{body_str}{Colors.RESET}"
+                        )
+
+                # Recreate response with the body
+                return Response(
+                    content=response_body,
+                    status_code=response.status_code,
+                    headers=dict(response.headers),
+                    media_type=response.media_type
+                )
+
         return response
 
 
