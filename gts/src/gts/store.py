@@ -41,6 +41,16 @@ class StoreGtsSchemaForInstanceNotFound(Exception):
         self.entity_id = entity_id
 
 
+class StoreGtsCastFromSchemaNotAllowed(Exception):
+    """Exception raised when attempting to cast from a schema ID."""
+    def __init__(self, from_id: str):
+        super().__init__(
+            f"Cannot cast from schema ID '{from_id}'. "
+            f"The from_id must be an instance (not ending with '~')."
+        )
+        self.from_id = from_id
+
+
 class GtsReader(ABC):
     """Abstract base class for reading JSON entities from various sources."""
 
@@ -217,6 +227,9 @@ class GtsStore:
         from_entity = self.get(from_id)
         if not from_entity:
             raise StoreGtsEntityNotFound(from_id)
+
+        if from_entity.is_schema:
+            raise StoreGtsCastFromSchemaNotAllowed(from_id)
 
         to_schema = self.get(target_schema_id)
         if not to_schema:
