@@ -9,6 +9,7 @@ from jsonschema import RefResolver
 from .gts import GtsID, GtsWildcard
 from .entities import JsonEntity
 from .schema_cast import JsonEntityCastResult
+from .x_gts_ref import XGtsRefValidator
 
 import logging
 
@@ -191,6 +192,97 @@ class GtsStore:
         """Return all entity ID and entity pairs."""
         return self._by_id.items()
 
+    def _validate_schema_x_gts_refs(self, gts_id: str) -> None:
+        """
+        Validate a schema's x-gts-ref fields.
+
+        Args:
+            gts_id: The GTS ID of the schema to validate
+        """
+        if not gts_id.endswith("~"):
+            raise ValueError(
+                f"ID '{gts_id}' is not a schema (must end with '~')"
+            )
+
+        schema_entity = self.get(gts_id)
+        if not schema_entity:
+            raise StoreGtsSchemaNotFound(gts_id)
+
+        if not schema_entity.is_schema:
+            raise ValueError(f"Entity '{gts_id}' is not a schema")
+
+        logging.info(f"Validating schema x-gts-ref fields for {gts_id}")
+
+        # Validate x-gts-ref constraints in the schema
+        x_gts_ref_validator = XGtsRefValidator(store=self)
+        x_gts_ref_errors = x_gts_ref_validator.validate_schema(
+            schema_entity.content
+        )
+        if x_gts_ref_errors:
+            error_messages = [
+                f"{err.field_path}: {err.reason}"
+                for err in x_gts_ref_errors
+            ]
+            raise Exception(
+                f"Schema x-gts-ref validation failed: "
+                f"{'; '.join(error_messages)}"
+            )
+
+    def validate_schema(self, gts_id: str) -> None:
+        """
+        Full schema validation including:
+        1. JSON Schema meta-schema validation
+        2. x-gts-ref field validation
+
+        Args:
+            gts_id: The GTS ID of the schema to validate
+        """
+        if not gts_id.endswith("~"):
+            raise ValueError(
+                f"ID '{gts_id}' is not a schema (must end with '~')"
+            )
+
+        schema_entity = self.get(gts_id)
+        if not schema_entity:
+            raise StoreGtsSchemaNotFound(gts_id)
+
+        if not schema_entity.is_schema:
+            raise ValueError(f"Entity '{gts_id}' is not a schema")
+
+        schema_content = schema_entity.content
+        if not isinstance(schema_content, dict):
+            raise ValueError(
+                f"Schema '{gts_id}' content must be a dictionary"
+            )
+
+        logging.info(f"Validating schema {gts_id}")
+
+        # 1. Validate against JSON Schema meta-schema
+        try:
+            from jsonschema import Draft7Validator, ValidationError
+            from jsonschema.validators import validator_for
+
+            # Determine which meta-schema to use based on $schema field
+            meta_schema_url = schema_content.get("$schema")
+            if meta_schema_url:
+                # Use the appropriate validator for the schema version
+                validator_class = validator_for({"$schema": meta_schema_url})
+                validator_class.check_schema(schema_content)
+            else:
+                # Default to Draft7 if no $schema specified
+                Draft7Validator.check_schema(schema_content)
+
+            logging.info(
+                f"Schema {gts_id} passed JSON Schema meta-schema validation"
+            )
+        except Exception as e:
+            raise Exception(
+                f"JSON Schema validation failed for '{gts_id}': {str(e)}"
+            )
+
+        # 2. Validate x-gts-ref fields
+        self._validate_schema_x_gts_refs(gts_id)
+
     def validate_instance(
         self,
         gts_id: str,
@@ -213,11 +305,27 @@ class GtsStore:
         except KeyError:
             raise StoreGtsSchemaNotFound(obj.schemaId)
 
-        logging.info(f"Validating instance {gts_id} against schema {obj.schemaId}")
+        logging.info(
+            f"Validating instance {gts_id} against schema {obj.schemaId}"
+        )
 
         # Create custom RefResolver to resolve GTS ID references
         resolver = self._create_ref_resolver(schema)
         js_validate(instance=obj.content, schema=schema, resolver=resolver)
+
+        # Validate x-gts-ref constraints
+        x_gts_ref_validator = XGtsRefValidator(store=self)
+        x_gts_ref_errors = x_gts_ref_validator.validate_instance(
+            obj.content, schema
+        )
+        if x_gts_ref_errors:
+            error_messages = [
+                f"{err.field_path}: {err.reason}"
+                for err in x_gts_ref_errors
+            ]
+            raise Exception(
+                f"x-gts-ref validation failed: {'; '.join(error_messages)}"
+            )
 
     def cast(
         self,

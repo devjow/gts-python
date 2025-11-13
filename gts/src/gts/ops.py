@@ -135,6 +135,28 @@ class GtsEntityInfo:
 
 
 @dataclass
+class GtsGetEntityResult:
+    """Result of getting a single entity."""
+    ok: bool
+    id: str = ""
+    schema_id: Optional[str] = None
+    is_schema: bool = False
+    content: Any = None
+    error: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {"ok": self.ok}
+        if self.ok:
+            result["id"] = self.id
+            result["schema_id"] = self.schema_id
+            result["is_schema"] = self.is_schema
+            result["content"] = self.content
+        else:
+            result["error"] = self.error
+        return result
+
+
+@dataclass
 class GtsEntitiesListResult:
     """Result of listing entities."""
     entities: List[GtsEntityInfo]
@@ -265,11 +287,41 @@ class GtsOps:
         self._reader = GtsFileReader(self.path, cfg=self.cfg)
         self.store = GtsStore(self._reader)
 
-    def add_entity(self, content: Dict[str, Any]) -> GtsAddEntityResult:
+    def add_entity(
+        self,
+        content: Dict[str, Any],
+        validate: bool = False
+    ) -> GtsAddEntityResult:
         entity = JsonEntity(content=content, cfg=self.cfg)
         if not entity.gts_id:
-            return GtsAddEntityResult(ok=False, error="Unable to detect GTS ID in entity")
+            return GtsAddEntityResult(
+                ok=False,
+                error="Unable to detect GTS ID in entity"
+            )
+
+        # Register the entity first
         self.store.register(entity)
+
+        # Always validate schemas
+        if entity.is_schema:
+            try:
+                self.store.validate_schema(entity.gts_id.id)
+            except Exception as e:
+                return GtsAddEntityResult(
+                    ok=False,
+                    error=f"Validation failed: {str(e)}"
+                )
+
+        # If validation is requested, validate the instance as well
+        if validate and not entity.is_schema:
+            try:
+                self.store.validate_instance(entity.gts_id.id)
+            except Exception as e:
+                return GtsAddEntityResult(
+                    ok=False,
+                    error=f"Validation failed: {str(e)}"
+                )
+
         return GtsAddEntityResult(
             ok=True,
             id=entity.gts_id.id,
@@ -337,6 +389,23 @@ class GtsOps:
         except Exception as e:
             return GtsValidationResult(id=gts_id, ok=False, error=str(e))
 
+    def validate_schema(self, gts_id: str) -> GtsValidationResult:
+        try:
+            self.store.validate_schema(gts_id)
+            return GtsValidationResult(id=gts_id, ok=True)
+        except Exception as e:
+            return GtsValidationResult(id=gts_id, ok=False, error=str(e))
+
+    def validate_entity(self, gts_id: str) -> GtsValidationResult:
+        try:
+            if gts_id.endswith("~"):
+                self.store.validate_schema(gts_id)
+            else:
+                self.store.validate_instance(gts_id)
+            return GtsValidationResult(id=gts_id, ok=True)
+        except Exception as e:
+            return GtsValidationResult(id=gts_id, ok=False, error=str(e))
+
     def schema_graph(self, gts_id: str) -> GtsSchemaGraphResult:
         graph = self.store.build_schema_graph(gts_id)
         return GtsSchemaGraphResult(graph=graph)
@@ -372,6 +441,35 @@ class GtsOps:
             is_schema=entity.is_schema,
         )
 
+    def get_entity(self, gts_id: str) -> GtsGetEntityResult:
+        """Get a single entity by its GTS ID.
+
+        Args:
+            gts_id: The GTS ID of the entity to retrieve
+
+        Returns:
+            GtsGetEntityResult with entity details or error
+        """
+        try:
+            entity = self.store.get(gts_id)
+            if not entity:
+                return GtsGetEntityResult(
+                    ok=False,
+                    error=f"Entity '{gts_id}' not found"
+                )
+            return GtsGetEntityResult(
+                ok=True,
+                id=entity.gts_id.id if entity.gts_id else gts_id,
+                schema_id=entity.schemaId,
+                is_schema=entity.is_schema,
+                content=entity.content
+            )
+        except Exception as e:
+            return GtsGetEntityResult(
+                ok=False,
+                error=str(e)
+            )
+
     def get_entities(self, limit: int = 100) -> GtsEntitiesListResult:
         """Get all entities in the registry.
 
@@ -391,7 +489,9 @@ class GtsOps:
             )
             for entity_id, entity in all_entities[:limit]
         ]
-        return GtsEntitiesListResult(entities=entities, count=len(entities), total=total)
+        return GtsEntitiesListResult(
+            entities=entities, count=len(entities), total=total
+        )
 
     def list(self, limit: int = 100) -> GtsEntitiesListResult:
         """Alias for get_entities. List all discovered entities.

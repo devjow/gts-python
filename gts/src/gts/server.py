@@ -179,6 +179,13 @@ class GtsHttpServer:
             response_class=JSONResponse,
         )
         app.add_api_route(
+            "/entities/{gts_id:path}",
+            self.get_entity,
+            methods=["GET"],
+            summary="Get a specific entity by GTS ID",
+            response_class=JSONResponse,
+        )
+        app.add_api_route(
             "/entities",
             self.add_entity,
             methods=["POST"],
@@ -287,8 +294,14 @@ class GtsHttpServer:
         )
 
     # Handlers as methods (no free functions)
-    async def add_entity(self, body: Dict[str, Any] = Body(...)) -> JSONResponse:
-        return JSONResponse(self.ops.add_entity(body).to_dict())
+    async def add_entity(
+        self,
+        body: Dict[str, Any] = Body(...),
+        validate: bool = Query(False)
+    ) -> JSONResponse:
+        return JSONResponse(
+            self.ops.add_entity(body, validate=validate).to_dict()
+        )
 
     async def add_entities(self, body: List[Dict[str, Any]] = Body(...)) -> JSONResponse:
         return JSONResponse(self.ops.add_entities(body).to_dict())
@@ -339,5 +352,10 @@ class GtsHttpServer:
     async def attr(self, gts_with_path: str = Query(...)) -> Dict[str, Any]:
         return self.ops.attr(gts_with_path).to_dict()
 
-    async def get_entities(self, limit: int = Query(100, ge=1, le=1000)) -> Dict[str, Any]:
+    async def get_entity(self, gts_id: str) -> Dict[str, Any]:
+        return self.ops.get_entity(gts_id).to_dict()
+
+    async def get_entities(
+        self, limit: int = Query(100, ge=1, le=1000)
+    ) -> Dict[str, Any]:
         return self.ops.get_entities(limit=limit).to_dict()
