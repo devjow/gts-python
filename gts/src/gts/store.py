@@ -7,8 +7,8 @@ from jsonschema import validate as js_validate
 from jsonschema import RefResolver
 
 from .gts import GtsID, GtsWildcard
-from .entities import JsonEntity
-from .schema_cast import JsonEntityCastResult
+from .entities import GtsEntity
+from .schema_cast import GtsEntityCastResult
 from .x_gts_ref import XGtsRefValidator
 
 import logging
@@ -56,12 +56,12 @@ class GtsReader(ABC):
     """Abstract base class for reading JSON entities from various sources."""
 
     @abstractmethod
-    def __iter__(self) -> Iterator[JsonEntity]:
+    def __iter__(self) -> Iterator[GtsEntity]:
         """Return an iterator that yields JsonEntity objects."""
         pass
 
     @abstractmethod
-    def read_by_id(self, entity_id: str) -> Optional[JsonEntity]:
+    def read_by_id(self, entity_id: str) -> Optional[GtsEntity]:
         """
         Read a JsonEntity by its ID.
         Returns None if the entity is not found.
@@ -121,7 +121,7 @@ class GtsStore:
             if entity.gts_id and entity.gts_id.id:
                 self._by_id[entity.gts_id.id] = entity
 
-    def register(self, entity: JsonEntity) -> None:
+    def register(self, entity: GtsEntity) -> None:
         """Register a JsonEntity in the store."""
         if not entity.gts_id or not entity.gts_id.id:
             raise ValueError("Entity must have a valid gts_id")
@@ -143,7 +143,7 @@ class GtsStore:
         )
         self._by_id[type_id] = entity
 
-    def get(self, entity_id: str) -> Optional[JsonEntity]:
+    def get(self, entity_id: str) -> Optional[GtsEntity]:
         """
         Get a JsonEntity by its ID.
         If not found in cache, try to fetch from reader.
@@ -331,7 +331,7 @@ class GtsStore:
         self,
         from_id: str,
         target_schema_id: str,
-    ) -> JsonEntityCastResult:
+    ) -> GtsEntityCastResult:
         from_entity = self.get(from_id)
         if not from_entity:
             raise StoreGtsEntityNotFound(from_id)
@@ -364,7 +364,7 @@ class GtsStore:
         self,
         old_schema_id: str,
         new_schema_id: str,
-    ) -> JsonEntityCastResult:
+    ) -> GtsEntityCastResult:
         """
         Check compatibility between two schemas.
 
