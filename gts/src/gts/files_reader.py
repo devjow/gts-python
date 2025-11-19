@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import yaml
 from pathlib import Path
 import os
 from typing import Iterator, List, Optional, Any
 
 from .store import GtsReader
-from .entities import JsonEntity, JsonFile, DEFAULT_GTS_CONFIG, GtsConfig
+from .entities import GtsEntity, GtsFile, DEFAULT_GTS_CONFIG, GtsConfig
 
 import logging
 
@@ -15,7 +16,7 @@ EXCLUDE_LIST = ["node_modules", "dist", "build"]
 
 
 class GtsFileReader(GtsReader):
-    """Reads JSON entities from files and directories specified by path."""
+    """Reads GTS entities from JSON and YAML files in directories specified by path."""
 
     def __init__(self, path: str | List[str], cfg: Optional[GtsConfig] = None) -> None:
         """
@@ -34,13 +35,13 @@ class GtsFileReader(GtsReader):
         self.cfg = cfg or DEFAULT_GTS_CONFIG
         self._files: List[Path] = []
         self._current_index = 0
-        self._current_file_entities: List[JsonEntity] = []
+        self._current_file_entities: List[GtsEntity] = []
         self._current_entity_index = 0
         self._initialized = False
 
     def _collect_files(self) -> None:
-        """Collect all JSON files from the specified paths, following symlinks."""
-        valid_extensions = {'.json', '.jsonc', '.gts'}
+        """Collect all JSON and YAML files from the specified paths, following symlinks."""
+        valid_extensions = {'.json', '.jsonc', '.gts', '.yaml', '.yml'}
         seen: set[str] = set()
         collected: List[Path] = []
 
@@ -73,18 +74,21 @@ class GtsFileReader(GtsReader):
 
         self._files = collected
 
-    def _load_json_file(self, file_path: Path) -> Any:
-        """Load JSON content from a file."""
+    def _load_file(self, file_path: Path) -> Any:
+        """Load content from JSON or YAML file."""
         with file_path.open("r", encoding="utf-8") as f:
-            return json.load(f)
+            if file_path.suffix.lower() in {'.yaml', '.yml'}:
+                return yaml.safe_load(f)
+            else:
+                return json.load(f)
 
-    def _process_file(self, file_path: Path) -> List[JsonEntity]:
-        """Process a single JSON file and return list of JsonEntity objects."""
-        entities: List[JsonEntity] = []
+    def _process_file(self, file_path: Path) -> List[GtsEntity]:
+        """Process a single JSON or YAML file and return list of GtsEntity objects."""
+        entities: List[GtsEntity] = []
 
         try:
-            content = self._load_json_file(file_path)
-            json_file = JsonFile(
+            content = self._load_file(file_path)
+            json_file = GtsFile(
                 path=str(file_path),
                 name=file_path.name,
                 content=content
@@ -93,7 +97,7 @@ class GtsFileReader(GtsReader):
             # Handle both single objects and arrays
             if isinstance(content, list):
                 for idx, item in enumerate(content):
-                    entity = JsonEntity(
+                    entity = GtsEntity(
                         file=json_file,
                         list_sequence=idx,
                         content=item,
@@ -103,7 +107,7 @@ class GtsFileReader(GtsReader):
                         logging.debug(f"- discovered entity: {entity.gts_id.id}")
                         entities.append(entity)
             else:
-                entity = JsonEntity(
+                entity = GtsEntity(
                     file=json_file,
                     list_sequence=None,
                     content=content,
@@ -118,8 +122,8 @@ class GtsFileReader(GtsReader):
 
         return entities
 
-    def __iter__(self) -> Iterator[JsonEntity]:
-        """Iterate over all JsonEntity objects from all files."""
+    def __iter__(self) -> Iterator[GtsEntity]:
+        """Iterate over all GtsEntity objects from all files."""
         if not self._initialized:
             self._collect_files()
             self._initialized = True
@@ -130,9 +134,9 @@ class GtsFileReader(GtsReader):
             for entity in entities:
                 yield entity
 
-    def read_by_id(self, entity_id: str) -> Optional[JsonEntity]:
+    def read_by_id(self, entity_id: str) -> Optional[GtsEntity]:
         """
-        Read a JsonEntity by its ID.
+        Read a GtsEntity by its ID.
         For FileReader, this returns None as we don't support random access by ID.
         """
         return None
