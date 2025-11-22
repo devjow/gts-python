@@ -4,8 +4,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from .gts import GtsID
-from .path_resolver import JsonPathResolver
-from .schema_cast import JsonEntityCastResult, SchemaCastError
+from .path_resolver import GtsPathResolver
+from .schema_cast import GtsEntityCastResult, SchemaCastError
 
 
 @dataclass
@@ -24,7 +24,7 @@ class ValidationResult:
 
 
 @dataclass
-class JsonFile:
+class GtsFile:
     path: str
     name: str
     content: Any
@@ -74,10 +74,10 @@ DEFAULT_GTS_CONFIG = GtsConfig(
 
 
 @dataclass
-class JsonEntity:
+class GtsEntity:
     gts_id: Optional[GtsID] = None
     is_schema: bool = False
-    file: Optional[JsonFile] = None
+    file: Optional[GtsFile] = None
     list_sequence: Optional[int] = None
     label: str = ""
     content: Any = None
@@ -92,7 +92,7 @@ class JsonEntity:
     def __init__(
         self,
         *,
-        file: Optional[JsonFile] = None,
+        file: Optional[GtsFile] = None,
         list_sequence: Optional[int] = None,
         content: Any = None,
         cfg: Optional[GtsConfig] = None,
@@ -168,11 +168,11 @@ class JsonEntity:
             return True
         return False
 
-    def resolve_path(self, path: str) -> JsonPathResolver:
-        resolver = JsonPathResolver(self.gts_id.id if self.gts_id else '', self.content)
+    def resolve_path(self, path: str) -> GtsPathResolver:
+        resolver = GtsPathResolver(self.gts_id.id if self.gts_id else '', self.content)
         return resolver.resolve(path)
 
-    def cast(self, to_schema: JsonEntity, from_schema: JsonEntity, resolver: Optional[Any] = None) -> JsonEntityCastResult:
+    def cast(self, to_schema: GtsEntity, from_schema: GtsEntity, resolver: Optional[Any] = None) -> GtsEntityCastResult:
         if self.is_schema:
             # When casting a schema, from_schema might be a standard JSON Schema (no gts_id)
             # In that case, skip the sanity check
@@ -182,7 +182,7 @@ class JsonEntity:
             raise SchemaCastError("Target must be a schema")
         if not from_schema.is_schema:
             raise SchemaCastError("Source schema must be a schema")
-        return JsonEntityCastResult.cast(
+        return GtsEntityCastResult.cast(
             self.gts_id.id,
             to_schema.gts_id.id,
             self.content,

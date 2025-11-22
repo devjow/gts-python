@@ -5,7 +5,7 @@ from typing import Any, List
 
 
 @dataclass
-class JsonPathResolver:
+class GtsPathResolver:
     gts_id: str
     content: Any
     path: str = ""
@@ -70,7 +70,7 @@ class JsonPathResolver:
         self._list_available(node, '', acc)
         return acc
 
-    def resolve(self, path: str) -> JsonPathResolver:
+    def resolve(self, path: str) -> GtsPathResolver:
         self.path = path
         self.value = None
         self.resolved = False
@@ -119,7 +119,7 @@ class JsonPathResolver:
         self.resolved = True
         return self
 
-    def failure(self, path: str, error: str) -> JsonPathResolver:
+    def failure(self, path: str, error: str) -> GtsPathResolver:
         self.path = path
         self.value = None
         self.resolved = False

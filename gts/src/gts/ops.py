@@ -7,11 +7,11 @@ import json
 from pathlib import Path as SysPath
 
 from .gts import GtsID, GtsWildcard
-from .entities import DEFAULT_GTS_CONFIG, GtsConfig, JsonEntity
+from .entities import DEFAULT_GTS_CONFIG, GtsConfig, GtsEntity
 from .files_reader import GtsFileReader
-from .path_resolver import JsonPathResolver
+from .path_resolver import GtsPathResolver
 from .store import GtsStore, GtsStoreQueryResult
-from .schema_cast import JsonEntityCastResult
+from .schema_cast import GtsEntityCastResult
 
 # Interface helpers
 
