@@ -23,13 +23,13 @@ class Colors:
     DIM = "\033[2m" if _USE_COLORS else ""
 
     # Status code colors
-    GREEN = "\033[92m" if _USE_COLORS else ""      # 2xx success
-    YELLOW = "\033[93m" if _USE_COLORS else ""     # 3xx redirect
-    RED = "\033[91m" if _USE_COLORS else ""        # 4xx, 5xx errors
-    CYAN = "\033[96m" if _USE_COLORS else ""       # Method
-    BLUE = "\033[94m" if _USE_COLORS else ""       # Path
-    MAGENTA = "\033[95m" if _USE_COLORS else ""    # Duration
-    GRAY = "\033[90m" if _USE_COLORS else ""       # DEBUG content
+    GREEN = "\033[92m" if _USE_COLORS else ""  # 2xx success
+    YELLOW = "\033[93m" if _USE_COLORS else ""  # 3xx redirect
+    RED = "\033[91m" if _USE_COLORS else ""  # 4xx, 5xx errors
+    CYAN = "\033[96m" if _USE_COLORS else ""  # Method
+    BLUE = "\033[94m" if _USE_COLORS else ""  # Path
+    MAGENTA = "\033[95m" if _USE_COLORS else ""  # Duration
+    GRAY = "\033[90m" if _USE_COLORS else ""  # DEBUG content
 
 
 class _RequestLoggingMiddleware(BaseHTTPMiddleware):
@@ -80,14 +80,15 @@ class _RequestLoggingMiddleware(BaseHTTPMiddleware):
         if self.verbose >= 2 and cached_body:
             try:
                 import json
-                body_json = json.loads(cached_body.decode('utf-8'))
+
+                body_json = json.loads(cached_body.decode("utf-8"))
                 body_str = json.dumps(body_json, indent=2)
                 logging.debug(
                     f"{Colors.DIM}Request body:{Colors.RESET}\n"
                     f"{Colors.GRAY}{body_str}{Colors.RESET}"
                 )
             except Exception:
-                body_str = cached_body.decode('utf-8', errors='replace')
+                body_str = cached_body.decode("utf-8", errors="replace")
                 logging.debug(
                     f"{Colors.DIM}Request body (raw):{Colors.RESET}\n"
                     f"{Colors.GRAY}{body_str}{Colors.RESET}"
@@ -97,6 +98,7 @@ class _RequestLoggingMiddleware(BaseHTTPMiddleware):
         if self.verbose >= 2:
             # Read response body
             from starlette.responses import StreamingResponse, Response
+
             if isinstance(response, (Response, StreamingResponse)):
                 response_body = b""
                 async for chunk in response.body_iterator:
@@ -105,18 +107,15 @@ class _RequestLoggingMiddleware(BaseHTTPMiddleware):
                 if response_body:
                     try:
                         import json
-                        body_json = json.loads(
-                            response_body.decode('utf-8')
-                        )
+
+                        body_json = json.loads(response_body.decode("utf-8"))
                         body_str = json.dumps(body_json, indent=2)
                         logging.debug(
                             f"{Colors.DIM}Response body:{Colors.RESET}\n"
                             f"{Colors.GRAY}{body_str}{Colors.RESET}"
                         )
                     except Exception:
-                        body_str = response_body.decode(
-                            'utf-8', errors='replace'
-                        )
+                        body_str = response_body.decode("utf-8", errors="replace")
                         logging.debug(
                             f"{Colors.DIM}Response body (raw):{Colors.RESET}\n"
                             f"{Colors.GRAY}{body_str}{Colors.RESET}"
@@ -127,7 +126,7 @@ class _RequestLoggingMiddleware(BaseHTTPMiddleware):
                     content=response_body,
                     status_code=response.status_code,
                     headers=dict(response.headers),
-                    media_type=response.media_type
+                    media_type=response.media_type,
                 )
 
         return response
@@ -189,9 +188,7 @@ class GtsHttpServer:
             "/entities",
             self.add_entity,
             methods=["POST"],
-            summary=(
-                "Register a single entity (object or schema)"
-            ),
+            summary=("Register a single entity (object or schema)"),
             response_class=JSONResponse,
         )
         app.add_api_route(
@@ -221,9 +218,7 @@ class GtsHttpServer:
             "/extract-id",
             self.extract_id,
             methods=["POST"],
-            summary=(
-                "Extract GTS ID and schema ID from JSON content"
-            ),
+            summary=("Extract GTS ID and schema ID from JSON content"),
         )
         # Op #3 - parse
         app.add_api_route(
@@ -237,9 +232,7 @@ class GtsHttpServer:
             "/match-id-pattern",
             self.match_id_pattern,
             methods=["GET"],
-            summary=(
-                "Match candidate against wildcard pattern"
-            ),
+            summary=("Match candidate against wildcard pattern"),
         )
         # Op #5 - uuid
         app.add_api_route(
@@ -260,9 +253,7 @@ class GtsHttpServer:
             "/resolve-relationships",
             self.schema_graph,
             methods=["GET"],
-            summary=(
-                "Build schema/entity graph for a GTS ID"
-            ),
+            summary=("Build schema/entity graph for a GTS ID"),
         )
         # Op #8 - compatibility
         app.add_api_route(
@@ -295,15 +286,13 @@ class GtsHttpServer:
 
     # Handlers as methods (no free functions)
     async def add_entity(
-        self,
-        body: Dict[str, Any] = Body(...),
-        validate: bool = Query(False)
+        self, body: Dict[str, Any] = Body(...), validate: bool = Query(False)
     ) -> JSONResponse:
-        return JSONResponse(
-            self.ops.add_entity(body, validate=validate).to_dict()
-        )
+        return JSONResponse(self.ops.add_entity(body, validate=validate).to_dict())
 
-    async def add_entities(self, body: List[Dict[str, Any]] = Body(...)) -> JSONResponse:
+    async def add_entities(
+        self, body: List[Dict[str, Any]] = Body(...)
+    ) -> JSONResponse:
         return JSONResponse(self.ops.add_entities(body).to_dict())
 
     async def add_schema(self, body: SchemaRegister) -> JSONResponse:
@@ -333,7 +322,9 @@ class GtsHttpServer:
     async def validate_instance(self, body: ValidateInstanceRequest) -> Dict[str, Any]:
         return self.ops.validate_instance(body.instance_id).to_dict()
 
-    async def schema_graph(self, id: str = Query(..., alias="gts_id")) -> Dict[str, Any]:
+    async def schema_graph(
+        self, id: str = Query(..., alias="gts_id")
+    ) -> Dict[str, Any]:
         return self.ops.schema_graph(id).to_dict()
 
     async def compatibility(
@@ -346,7 +337,9 @@ class GtsHttpServer:
     async def cast(self, body: CastRequest) -> Dict[str, Any]:
         return self.ops.cast(body.instance_id, body.to_schema_id).to_dict()
 
-    async def query(self, expr: str = Query(...), limit: int = Query(100, ge=1, le=1000)) -> Dict[str, Any]:
+    async def query(
+        self, expr: str = Query(...), limit: int = Query(100, ge=1, le=1000)
+    ) -> Dict[str, Any]:
         return self.ops.query(expr, limit=limit).to_dict()
 
     async def attr(self, gts_with_path: str = Query(...)) -> Dict[str, Any]:

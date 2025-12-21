@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .gts import GtsID
 from .path_resolver import GtsPathResolver
@@ -33,9 +33,7 @@ class GtsFile:
     validation: ValidationResult = field(default_factory=ValidationResult)
 
     def __post_init__(self) -> None:
-        items = (
-            self.content if isinstance(self.content, list) else [self.content]
-        )
+        items = self.content if isinstance(self.content, list) else [self.content]
         for i, it in enumerate(items):
             self.sequencesCount += 1
             self.sequenceContent[i] = it
@@ -128,7 +126,7 @@ class GtsEntity:
             if not (idv and GtsID.is_valid(idv)):
                 if self.schemaId and GtsID.is_valid(self.schemaId):
                     idv = self.schemaId
-            self.gts_id = (GtsID(idv) if idv and GtsID.is_valid(idv) else None)
+            self.gts_id = GtsID(idv) if idv and GtsID.is_valid(idv) else None
 
         # Set label
         if self.file and self.list_sequence is not None:
@@ -168,16 +166,23 @@ class GtsEntity:
             return True
         return False
 
-    def resolve_path(self, path: str) -> GtsPathResolver:
-        resolver = GtsPathResolver(self.gts_id.id if self.gts_id else '', self.content)
+    def resolve_path(self, path: str) -> JsonPathResolver:
+        resolver = JsonPathResolver(self.gts_id.id if self.gts_id else "", self.content)
         return resolver.resolve(path)
 
-    def cast(self, to_schema: GtsEntity, from_schema: GtsEntity, resolver: Optional[Any] = None) -> GtsEntityCastResult:
+    def cast(
+        self,
+        to_schema: JsonEntity,
+        from_schema: JsonEntity,
+        resolver: Optional[Any] = None,
+    ) -> JsonEntityCastResult:
         if self.is_schema:
             # When casting a schema, from_schema might be a standard JSON Schema (no gts_id)
             # In that case, skip the sanity check
             if from_schema.gts_id and self.gts_id.id != from_schema.gts_id.id:
-                raise SchemaCastError(f"Internal error: {self.gts_id.id} != {from_schema.gts_id.id}")
+                raise SchemaCastError(
+                    f"Internal error: {self.gts_id.id} != {from_schema.gts_id.id}"
+                )
         if not to_schema.is_schema:
             raise SchemaCastError("Target must be a schema")
         if not from_schema.is_schema:
@@ -188,7 +193,7 @@ class GtsEntity:
             self.content,
             from_schema.content,
             to_schema.content,
-            resolver=resolver
+            resolver=resolver,
         )
 
     def _walk_and_collect(
@@ -204,6 +209,7 @@ class GtsEntity:
             collector: List to append matches to
             matcher: Function that takes (node, path) and returns Optional[Dict[str, str]]
         """
+
         def walk(node: Any, current_path: str = "") -> None:
             if node is None:
                 return
@@ -225,7 +231,9 @@ class GtsEntity:
 
         walk(content)
 
-    def _deduplicate_by_id_and_path(self, items: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    def _deduplicate_by_id_and_path(
+        self, items: List[Dict[str, str]]
+    ) -> List[Dict[str, str]]:
         """Deduplicate items by their id and sourcePath."""
         uniq: Dict[str, Dict[str, str]] = {}
         for item in items:
@@ -312,22 +320,22 @@ class GtsEntity:
         if not isinstance(self.content, dict):
             return None
         # Look for common UUID fields
-        for field in ["id", "uuid", "instanceId", "instance_id"]:
-            val = self.content.get(field)
+        for field_name in ["id", "uuid", "instanceId", "instance_id"]:
+            val = self.content.get(field_name)
             if isinstance(val, str) and val.strip():
                 # Check if it looks like a UUID (basic check)
                 import re
-                if re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', val.lower()):
+
+                if re.match(
+                    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    val.lower(),
+                ):
                     # Convert UUID to a valid GTS segment format
-                    return val.replace('-', '_')
+                    return val.replace("-", "_")
         return None
 
     def get_graph(self) -> Dict[str, Set[str]]:
         refs = {}
         for r in self.gts_refs:
             refs[r["sourcePath"]] = r["id"]
-        return {
-            "id": self.gts_id.id,
-            "schema_id": self.schemaId,
-            "refs": refs
-        }
+        return {"id": self.gts_id.id, "schema_id": self.schemaId, "refs": refs}

@@ -96,8 +96,12 @@ class GtsEntityCastResult:
             new_schema = to_schema_content
 
         # Check compatibility
-        is_backward, backward_errors = cls._check_backward_compatibility(old_schema, new_schema)
-        is_forward, forward_errors = cls._check_forward_compatibility(old_schema, new_schema)
+        is_backward, backward_errors = cls._check_backward_compatibility(
+            old_schema, new_schema
+        )
+        is_forward, forward_errors = cls._check_forward_compatibility(
+            old_schema, new_schema
+        )
 
         # Apply casting rules to the instance
         added: List[str] = []
@@ -105,10 +109,14 @@ class GtsEntityCastResult:
         reasons: List[str] = []
 
         try:
-            casted, added, removed, incompatibility_reasons = cls._cast_instance_to_schema(
-                copy.deepcopy(from_instance_content) if isinstance(from_instance_content, dict) else {},
-                target_schema,
-                base_path="",
+            casted, added, removed, incompatibility_reasons = (
+                cls._cast_instance_to_schema(
+                    copy.deepcopy(from_instance_content)
+                    if isinstance(from_instance_content, dict)
+                    else {},
+                    target_schema,
+                    base_path="",
+                )
             )
         except SchemaCastError as e:
             return cls(
@@ -209,8 +217,16 @@ class GtsEntityCastResult:
         if not isinstance(instance, dict):
             raise SchemaCastError("Instance must be an object for casting")
 
-        target_props = schema.get("properties", {}) if isinstance(schema.get("properties"), dict) else {}
-        required = set(schema.get("required", [])) if isinstance(schema.get("required"), list) else set()
+        target_props = (
+            schema.get("properties", {})
+            if isinstance(schema.get("properties"), dict)
+            else {}
+        )
+        required = (
+            set(schema.get("required", []))
+            if isinstance(schema.get("required"), list)
+            else set()
+        )
         additional = schema.get("additionalProperties", True)
 
         # Start from current values
@@ -226,14 +242,20 @@ class GtsEntityCastResult:
                     added.append(path)
                 else:
                     path = f"{base_path}.{prop}" if base_path else prop
-                    incompatibility_reasons.append(f"Missing required property '{path}' and no default is defined")
+                    incompatibility_reasons.append(
+                        f"Missing required property '{path}' and no default is defined"
+                    )
                     # raise SchemaCastError(f"Missing required property '{path}' and no default is defined")
 
         # 2) For optional properties with defaults, set if missing (non-breaking)
         for prop, p_schema in target_props.items():
             if prop in required:
                 continue
-            if prop not in result and isinstance(p_schema, dict) and "default" in p_schema:
+            if (
+                prop not in result
+                and isinstance(p_schema, dict)
+                and "default" in p_schema
+            ):
                 result[prop] = copy.deepcopy(p_schema["default"])
                 path = f"{base_path}.{prop}" if base_path else prop
                 added.append(path)
@@ -402,9 +424,13 @@ class GtsEntityCastResult:
         new_min = new_schema.get(min_key)
         if old_min is not None and new_min is not None:
             if check_tightening and new_min > old_min:
-                errors.append(f"Property '{prop}' {min_key} increased from {old_min} to {new_min}")
+                errors.append(
+                    f"Property '{prop}' {min_key} increased from {old_min} to {new_min}"
+                )
             elif not check_tightening and new_min < old_min:
-                errors.append(f"Property '{prop}' {min_key} decreased from {old_min} to {new_min}")
+                errors.append(
+                    f"Property '{prop}' {min_key} decreased from {old_min} to {new_min}"
+                )
         elif check_tightening and old_min is None and new_min is not None:
             errors.append(f"Property '{prop}' added {min_key} constraint: {new_min}")
         elif not check_tightening and old_min is not None and new_min is None:
@@ -415,9 +441,13 @@ class GtsEntityCastResult:
         new_max = new_schema.get(max_key)
         if old_max is not None and new_max is not None:
             if check_tightening and new_max < old_max:
-                errors.append(f"Property '{prop}' {max_key} decreased from {old_max} to {new_max}")
+                errors.append(
+                    f"Property '{prop}' {max_key} decreased from {old_max} to {new_max}"
+                )
             elif not check_tightening and new_max > old_max:
-                errors.append(f"Property '{prop}' {max_key} increased from {old_max} to {new_max}")
+                errors.append(
+                    f"Property '{prop}' {max_key} increased from {old_max} to {new_max}"
+                )
         elif check_tightening and old_max is None and new_max is not None:
             errors.append(f"Property '{prop}' added {max_key} constraint: {new_max}")
         elif not check_tightening and old_max is not None and new_max is None:
@@ -511,7 +541,9 @@ class GtsEntityCastResult:
             # Forward: cannot remove required properties
             removed_required = old_required - new_required
             if removed_required:
-                errors.append(f"Removed required properties: {', '.join(removed_required)}")
+                errors.append(
+                    f"Removed required properties: {', '.join(removed_required)}"
+                )
 
         # Check properties that exist in both schemas
         common_props = set(old_props.keys()) & set(new_props.keys())
@@ -523,7 +555,9 @@ class GtsEntityCastResult:
             old_type = old_prop_schema.get("type")
             new_type = new_prop_schema.get("type")
             if old_type and new_type and old_type != new_type:
-                errors.append(f"Property '{prop}' type changed from {old_type} to {new_type}")
+                errors.append(
+                    f"Property '{prop}' type changed from {old_type} to {new_type}"
+                )
 
             # Check enum constraints
             old_enum = old_prop_schema.get("enum")
@@ -535,12 +569,16 @@ class GtsEntityCastResult:
                     # Backward: cannot add enum values
                     added_enum_values = new_enum_set - old_enum_set
                     if added_enum_values:
-                        errors.append(f"Property '{prop}' added enum values: {added_enum_values}")
+                        errors.append(
+                            f"Property '{prop}' added enum values: {added_enum_values}"
+                        )
                 else:
                     # Forward: cannot remove enum values
                     removed_enum_values = old_enum_set - new_enum_set
                     if removed_enum_values:
-                        errors.append(f"Property '{prop}' removed enum values: {removed_enum_values}")
+                        errors.append(
+                            f"Property '{prop}' removed enum values: {removed_enum_values}"
+                        )
 
             # Check constraint compatibility
             constraint_errors = GtsEntityCastResult._check_constraint_compatibility(
@@ -676,8 +714,12 @@ class GtsEntityCastResult:
                     )
             return False
 
-        a_req = set(a.get("required", [])) if isinstance(a.get("required"), list) else set()
-        b_req = set(b.get("required", [])) if isinstance(b.get("required"), list) else set()
+        a_req = (
+            set(a.get("required", [])) if isinstance(a.get("required"), list) else set()
+        )
+        b_req = (
+            set(b.get("required", [])) if isinstance(b.get("required"), list) else set()
+        )
         if a_req != b_req:
             added_req = sorted(list(b_req - a_req))
             removed_req = sorted(list(a_req - b_req))
@@ -693,8 +735,12 @@ class GtsEntityCastResult:
                 )
             return False
 
-        a_props = a.get("properties", {}) if isinstance(a.get("properties"), dict) else {}
-        b_props = b.get("properties", {}) if isinstance(b.get("properties"), dict) else {}
+        a_props = (
+            a.get("properties", {}) if isinstance(a.get("properties"), dict) else {}
+        )
+        b_props = (
+            b.get("properties", {}) if isinstance(b.get("properties"), dict) else {}
+        )
         common = set(a_props.keys()) & set(b_props.keys())
         for k in common:
             next_path = f"{path}.properties.{k}" if path else f"properties.{k}"

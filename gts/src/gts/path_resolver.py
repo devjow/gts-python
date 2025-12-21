@@ -15,26 +15,26 @@ class GtsPathResolver:
     available_fields: List[str] = None  # type: ignore
 
     def _normalize(self, path: str) -> str:
-        return path.replace('/', '.')
+        return path.replace("/", ".")
 
     def _split_raw_parts(self, norm: str) -> List[str]:
-        return [seg for seg in norm.split('.') if seg != '']
+        return [seg for seg in norm.split(".") if seg != ""]
 
     def _parse_part(self, seg: str) -> List[str]:
         out: List[str] = []
-        buf = ''
+        buf = ""
         i = 0
         while i < len(seg):
             ch = seg[i]
-            if ch == '[':
+            if ch == "[":
                 if buf:
                     out.append(buf)
-                    buf = ''
-                j = seg.find(']', i + 1)
+                    buf = ""
+                j = seg.find("]", i + 1)
                 if j == -1:
                     buf += seg[i:]
                     break
-                out.append(seg[i:j + 1])
+                out.append(seg[i : j + 1])
                 i = j + 1
             else:
                 buf += ch
@@ -67,7 +67,7 @@ class GtsPathResolver:
 
     def _collect_from(self, node: Any) -> List[str]:
         acc: List[str] = []
-        self._list_available(node, '', acc)
+        self._list_available(node, "", acc)
         return acc
 
     def resolve(self, path: str) -> GtsPathResolver:
@@ -81,7 +81,7 @@ class GtsPathResolver:
         cur: Any = self.content
         for p in parts:
             if isinstance(cur, list):
-                if p.startswith('[') and p.endswith(']'):
+                if p.startswith("[") and p.endswith("]"):
                     idx_str = p[1:-1]
                     try:
                         idx = int(idx_str)
@@ -102,7 +102,7 @@ class GtsPathResolver:
                     return self
                 cur = cur[idx]
             elif isinstance(cur, dict):
-                if p.startswith('[') and p.endswith(']'):
+                if p.startswith("[") and p.endswith("]"):
                     self.error = f"Path not found at segment '{p}' in '{path}', see available fields"
                     self.available_fields = self._collect_from(cur)
                     return self
@@ -113,7 +113,9 @@ class GtsPathResolver:
                 cur = cur[p]
             else:
                 self.error = f"Cannot descend into {type(cur)} at segment '{p}'"
-                self.available_fields = self._collect_from(cur) if isinstance(cur, (dict, list)) else []
+                self.available_fields = (
+                    self._collect_from(cur) if isinstance(cur, (dict, list)) else []
+                )
                 return self
         self.value = cur
         self.resolved = True
