@@ -56,7 +56,7 @@ update-spec:
 # Run end-to-end tests against gts-spec
 e2e: build
 	@echo "Starting server in background..."
-	@python -m gts.server --port 8000 & echo $$! > .server.pid
+	@python -m gts server --port 8000 & echo $$! > .server.pid
 	@sleep 2
 	@echo "Running e2e tests..."
 	@PYTHONDONTWRITEBYTECODE=1 pytest -p no:cacheprovider --log-file=e2e.log ./.gts-spec/tests || (kill `cat .server.pid` 2>/dev/null; rm -f .server.pid; exit 1)
@@ -67,4 +67,3 @@ e2e: build
 
 # Run all quality checks
 check: fmt lint test e2e
-
