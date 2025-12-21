@@ -16,6 +16,7 @@ import logging
 
 class StoreGtsObjectNotFound(Exception):
     """Exception raised when a GTS entity is not found in the store."""
+
     def __init__(self, entity_id: str):
         super().__init__(f"JSON object with GTS ID '{entity_id}' not found in store")
         self.entity_id = entity_id
@@ -23,6 +24,7 @@ class StoreGtsObjectNotFound(Exception):
 
 class StoreGtsSchemaNotFound(Exception):
     """Exception raised when a GTS schema is not found in the store."""
+
     def __init__(self, entity_id: str):
         super().__init__(f"JSON schema with GTS ID '{entity_id}' not found in store")
         self.entity_id = entity_id
@@ -30,6 +32,7 @@ class StoreGtsSchemaNotFound(Exception):
 
 class StoreGtsEntityNotFound(Exception):
     """Exception raised when a GTS entity is not found in the store."""
+
     def __init__(self, entity_id: str):
         super().__init__(f"JSON entity with GTS ID '{entity_id}' not found in store")
         self.entity_id = entity_id
@@ -37,13 +40,17 @@ class StoreGtsEntityNotFound(Exception):
 
 class StoreGtsSchemaForInstanceNotFound(Exception):
     """Exception raised when a GTS schema for an instance is not found in the store."""
+
     def __init__(self, entity_id: str):
-        super().__init__(f"Can't determine JSON schema ID for instance with GTS ID '{entity_id}'")
+        super().__init__(
+            f"Can't determine JSON schema ID for instance with GTS ID '{entity_id}'"
+        )
         self.entity_id = entity_id
 
 
 class StoreGtsCastFromSchemaNotAllowed(Exception):
     """Exception raised when attempting to cast from a schema ID."""
+
     def __init__(self, from_id: str):
         super().__init__(
             f"Cannot cast from schema ID '{from_id}'. "
@@ -92,7 +99,12 @@ class GtsStoreQueryResult:
     def to_dict(self) -> Dict[str, Any]:
         if self.error:
             return {"error": self.error, "count": self.count, "limit": self.limit}
-        return {"count": self.count, "limit": self.limit, "error": self.error, "results": self.results}
+        return {
+            "count": self.count,
+            "limit": self.limit,
+            "error": self.error,
+            "results": self.results,
+        }
 
 
 class GtsStore:
@@ -136,11 +148,7 @@ class GtsStore:
             raise ValueError("Schema type_id must end with '~'")
         # parse sanity
         gts_id = GtsID(type_id)
-        entity = JsonEntity(
-            content=schema,
-            gts_id=gts_id,
-            is_schema=True
-        )
+        entity = JsonEntity(content=schema, gts_id=gts_id, is_schema=True)
         self._by_id[type_id] = entity
 
     def get(self, entity_id: str) -> Optional[JsonEntity]:
@@ -171,6 +179,7 @@ class GtsStore:
 
     def _create_ref_resolver(self, schema: Dict[str, Any]) -> RefResolver:
         """Create a custom RefResolver that can resolve GTS ID references from the store."""
+
         def resolve_gts_ref(uri: str) -> Dict[str, Any]:
             """Resolve a GTS ID reference to its schema content."""
             try:
@@ -185,7 +194,9 @@ class GtsStore:
                 store[entity_id] = entity.content
 
         # Create RefResolver with custom handlers
-        resolver = RefResolver.from_schema(schema, store=store, handlers={"": resolve_gts_ref})
+        resolver = RefResolver.from_schema(
+            schema, store=store, handlers={"": resolve_gts_ref}
+        )
         return resolver
 
     def items(self):
@@ -200,9 +211,7 @@ class GtsStore:
             gts_id: The GTS ID of the schema to validate
         """
         if not gts_id.endswith("~"):
-            raise ValueError(
-                f"ID '{gts_id}' is not a schema (must end with '~')"
-            )
+            raise ValueError(f"ID '{gts_id}' is not a schema (must end with '~')")
 
         schema_entity = self.get(gts_id)
         if not schema_entity:
@@ -215,17 +224,13 @@ class GtsStore:
 
         # Validate x-gts-ref constraints in the schema
         x_gts_ref_validator = XGtsRefValidator(store=self)
-        x_gts_ref_errors = x_gts_ref_validator.validate_schema(
-            schema_entity.content
-        )
+        x_gts_ref_errors = x_gts_ref_validator.validate_schema(schema_entity.content)
         if x_gts_ref_errors:
             error_messages = [
-                f"{err.field_path}: {err.reason}"
-                for err in x_gts_ref_errors
+                f"{err.field_path}: {err.reason}" for err in x_gts_ref_errors
             ]
             raise Exception(
-                f"Schema x-gts-ref validation failed: "
-                f"{'; '.join(error_messages)}"
+                f"Schema x-gts-ref validation failed: {'; '.join(error_messages)}"
             )
 
     def validate_schema(self, gts_id: str) -> None:
@@ -238,9 +243,7 @@ class GtsStore:
             gts_id: The GTS ID of the schema to validate
         """
         if not gts_id.endswith("~"):
-            raise ValueError(
-                f"ID '{gts_id}' is not a schema (must end with '~')"
-            )
+            raise ValueError(f"ID '{gts_id}' is not a schema (must end with '~')")
 
         schema_entity = self.get(gts_id)
         if not schema_entity:
@@ -251,9 +254,7 @@ class GtsStore:
 
         schema_content = schema_entity.content
         if not isinstance(schema_content, dict):
-            raise ValueError(
-                f"Schema '{gts_id}' content must be a dictionary"
-            )
+            raise ValueError(f"Schema '{gts_id}' content must be a dictionary")
 
         logging.info(f"Validating schema {gts_id}")
 
@@ -272,13 +273,9 @@ class GtsStore:
                 # Default to Draft7 if no $schema specified
                 Draft7Validator.check_schema(schema_content)
 
-            logging.info(
-                f"Schema {gts_id} passed JSON Schema meta-schema validation"
-            )
+            logging.info(f"Schema {gts_id} passed JSON Schema meta-schema validation")
         except Exception as e:
-            raise Exception(
-                f"JSON Schema validation failed for '{gts_id}': {str(e)}"
-            )
+            raise Exception(f"JSON Schema validation failed for '{gts_id}': {str(e)}")
 
         # 2. Validate x-gts-ref fields
         self._validate_schema_x_gts_refs(gts_id)
@@ -305,9 +302,7 @@ class GtsStore:
         except KeyError:
             raise StoreGtsSchemaNotFound(obj.schemaId)
 
-        logging.info(
-            f"Validating instance {gts_id} against schema {obj.schemaId}"
-        )
+        logging.info(f"Validating instance {gts_id} against schema {obj.schemaId}")
 
         # Create custom RefResolver to resolve GTS ID references
         resolver = self._create_ref_resolver(schema)
@@ -315,17 +310,12 @@ class GtsStore:
 
         # Validate x-gts-ref constraints
         x_gts_ref_validator = XGtsRefValidator(store=self)
-        x_gts_ref_errors = x_gts_ref_validator.validate_instance(
-            obj.content, schema
-        )
+        x_gts_ref_errors = x_gts_ref_validator.validate_instance(obj.content, schema)
         if x_gts_ref_errors:
             error_messages = [
-                f"{err.field_path}: {err.reason}"
-                for err in x_gts_ref_errors
+                f"{err.field_path}: {err.reason}" for err in x_gts_ref_errors
             ]
-            raise Exception(
-                f"x-gts-ref validation failed: {'; '.join(error_messages)}"
-            )
+            raise Exception(f"x-gts-ref validation failed: {'; '.join(error_messages)}")
 
     def cast(
         self,
@@ -399,8 +389,8 @@ class GtsStore:
         new_schema = new_entity.content if isinstance(new_entity.content, dict) else {}
 
         # Use the cast method's compatibility checking logic
-        is_backward, backward_errors = JsonEntityCastResult._check_backward_compatibility(
-            old_schema, new_schema
+        is_backward, backward_errors = (
+            JsonEntityCastResult._check_backward_compatibility(old_schema, new_schema)
         )
         is_forward, forward_errors = JsonEntityCastResult._check_forward_compatibility(
             old_schema, new_schema
@@ -429,9 +419,7 @@ class GtsStore:
         seen_gts_ids = set()
 
         def gts2node(gts_id: str, seen_gts_ids: Set[str]) -> str:
-            ret = {
-                "id": gts_id
-            }
+            ret = {"id": gts_id}
 
             if gts_id in seen_gts_ids:
                 return ret
@@ -444,13 +432,17 @@ class GtsStore:
                 for r in entity.gts_refs:
                     if r["id"] == gts_id:
                         continue
-                    if r["id"].startswith("http://json-schema.org") or r["id"].startswith("https://json-schema.org"):
+                    if r["id"].startswith("http://json-schema.org") or r[
+                        "id"
+                    ].startswith("https://json-schema.org"):
                         continue
                     refs[r["sourcePath"]] = gts2node(r["id"], seen_gts_ids)
                 if refs:
                     ret["refs"] = refs
                 if entity.schemaId:
-                    if not entity.schemaId.startswith("http://json-schema.org") and not entity.schemaId.startswith("https://json-schema.org"):
+                    if not entity.schemaId.startswith(
+                        "http://json-schema.org"
+                    ) and not entity.schemaId.startswith("https://json-schema.org"):
                         ret["schema_id"] = gts2node(entity.schemaId, seen_gts_ids)
                 else:
                     ret["errors"] = ret.get("errors", []) + ["Schema not recognized"]
@@ -484,7 +476,9 @@ class GtsStore:
                 filters[k.strip()] = v
         return filters
 
-    def _validate_query_pattern(self, base_pattern: str, is_wildcard: bool) -> Tuple[Optional[GtsWildcard], Optional[GtsID], str]:
+    def _validate_query_pattern(
+        self, base_pattern: str, is_wildcard: bool
+    ) -> Tuple[Optional[GtsWildcard], Optional[GtsID], str]:
         """Validate and parse the query pattern.
 
         Args:
@@ -497,7 +491,11 @@ class GtsStore:
         if is_wildcard:
             # Wildcard pattern must end with .* or ~*
             if not (base_pattern.endswith(".*") or base_pattern.endswith("~*")):
-                return None, None, "Invalid query: wildcard patterns must end with .* or ~*"
+                return (
+                    None,
+                    None,
+                    "Invalid query: wildcard patterns must end with .* or ~*",
+                )
             try:
                 wildcard_pattern = GtsWildcard(base_pattern)
                 return wildcard_pattern, None, ""
@@ -513,8 +511,14 @@ class GtsStore:
             except Exception as e:
                 return None, None, f"Invalid query: {str(e)}"
 
-    def _matches_id_pattern(self, entity_id: GtsID, base_pattern: str, is_wildcard: bool,
-                           wildcard_pattern: Optional[GtsWildcard], exact_gts_id: Optional[GtsID]) -> bool:
+    def _matches_id_pattern(
+        self,
+        entity_id: GtsID,
+        base_pattern: str,
+        is_wildcard: bool,
+        wildcard_pattern: Optional[GtsWildcard],
+        exact_gts_id: Optional[GtsID],
+    ) -> bool:
         """Check if entity ID matches the query pattern.
 
         Args:
@@ -542,7 +546,9 @@ class GtsStore:
 
         return entity_id.id == base_pattern
 
-    def _matches_filters(self, entity_content: Dict[str, Any], filters: Dict[str, str]) -> bool:
+    def _matches_filters(
+        self, entity_content: Dict[str, Any], filters: Dict[str, str]
+    ) -> bool:
         """Check if entity content matches all filter criteria.
 
         Args:
@@ -592,7 +598,9 @@ class GtsStore:
         filters = self._parse_query_filters(filter_str)
 
         # Validate and create pattern
-        wildcard_pattern, exact_gts_id, error = self._validate_query_pattern(base_pattern, is_wildcard)
+        wildcard_pattern, exact_gts_id, error = self._validate_query_pattern(
+            base_pattern, is_wildcard
+        )
         if error:
             result.error = error
             return result
@@ -605,8 +613,9 @@ class GtsStore:
                 continue
 
             # Check if ID matches the pattern
-            if not self._matches_id_pattern(entity.gts_id, base_pattern, is_wildcard,
-                                           wildcard_pattern, exact_gts_id):
+            if not self._matches_id_pattern(
+                entity.gts_id, base_pattern, is_wildcard, wildcard_pattern, exact_gts_id
+            ):
                 continue
 
             # Check filters

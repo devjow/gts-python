@@ -19,6 +19,7 @@ from .schema_cast import JsonEntityCastResult
 @dataclass
 class GtsIdValidationResult:
     """Result of validating a GTS ID format."""
+
     id: str
     valid: bool
     error: str = ""
@@ -30,6 +31,7 @@ class GtsIdValidationResult:
 @dataclass
 class GtsIdSegment:
     """Represents a single segment of a GTS ID."""
+
     vendor: str
     package: str
     namespace: str
@@ -53,6 +55,7 @@ class GtsIdSegment:
 @dataclass
 class GtsIdParseResult:
     """Result of parsing a GTS ID into its components."""
+
     id: str
     ok: bool
     segments: List[GtsIdSegment] = field(default_factory=list)
@@ -70,6 +73,7 @@ class GtsIdParseResult:
 @dataclass
 class GtsIdMatchResult:
     """Result of matching a GTS ID against a pattern."""
+
     candidate: str
     pattern: str
     match: bool
@@ -79,7 +83,7 @@ class GtsIdMatchResult:
         result = {
             "candidate": self.candidate,
             "pattern": self.pattern,
-            "match": self.match
+            "match": self.match,
         }
         if self.error:
             result["error"] = self.error
@@ -89,6 +93,7 @@ class GtsIdMatchResult:
 @dataclass
 class GtsUuidResult:
     """Result of generating a UUID from a GTS ID."""
+
     id: str
     uuid: str
 
@@ -99,6 +104,7 @@ class GtsUuidResult:
 @dataclass
 class GtsValidationResult:
     """Result of validating an instance against its schema."""
+
     id: str
     ok: bool
     error: str = ""
@@ -113,6 +119,7 @@ class GtsValidationResult:
 @dataclass
 class GtsSchemaGraphResult:
     """Result of building a schema graph for an entity."""
+
     graph: Dict[str, Any]
 
     def to_dict(self) -> Dict[str, Any]:
@@ -122,6 +129,7 @@ class GtsSchemaGraphResult:
 @dataclass
 class GtsEntityInfo:
     """Information about a single entity."""
+
     id: str
     schema_id: Optional[str]
     is_schema: bool
@@ -137,6 +145,7 @@ class GtsEntityInfo:
 @dataclass
 class GtsGetEntityResult:
     """Result of getting a single entity."""
+
     ok: bool
     id: str = ""
     schema_id: Optional[str] = None
@@ -159,6 +168,7 @@ class GtsGetEntityResult:
 @dataclass
 class GtsEntitiesListResult:
     """Result of listing entities."""
+
     entities: List[GtsEntityInfo]
     count: int
     total: int
@@ -174,6 +184,7 @@ class GtsEntitiesListResult:
 @dataclass
 class GtsAddEntityResult:
     """Result of adding an entity to the store."""
+
     ok: bool
     id: str = ""
     schema_id: Optional[str] = None
@@ -194,6 +205,7 @@ class GtsAddEntityResult:
 @dataclass
 class GtsAddEntitiesResult:
     """Result of adding multiple entities to the store."""
+
     ok: bool
     results: List[GtsAddEntityResult]
 
@@ -207,6 +219,7 @@ class GtsAddEntitiesResult:
 @dataclass
 class GtsAddSchemaResult:
     """Result of adding a schema to the store."""
+
     ok: bool
     id: str = ""
     error: str = ""
@@ -223,6 +236,7 @@ class GtsAddSchemaResult:
 @dataclass
 class GtsExtractIdResult:
     """Result of extracting ID information from content."""
+
     id: str
     schema_id: Optional[str]
     selected_entity_field: Optional[str]
@@ -240,7 +254,13 @@ class GtsExtractIdResult:
 
 
 class GtsOps:
-    def __init__(self, *, path: Optional[str | List[str]] = None, config: Optional[str] = None, verbose: int = 0) -> None:
+    def __init__(
+        self,
+        *,
+        path: Optional[str | List[str]] = None,
+        config: Optional[str] = None,
+        verbose: int = 0,
+    ) -> None:
         self.verbose = verbose
         self.cfg = self._load_config(config)
         self.path: Optional[str | List[str]] = path
@@ -251,8 +271,12 @@ class GtsOps:
     def _create_config_from_data(data: Dict[str, Any]) -> GtsConfig:
         """Create GtsConfig from JSON data with defaults."""
         return GtsConfig(
-            entity_id_fields=list(data.get("entity_id_fields", DEFAULT_GTS_CONFIG.entity_id_fields)),
-            schema_id_fields=list(data.get("schema_id_fields", DEFAULT_GTS_CONFIG.schema_id_fields)),
+            entity_id_fields=list(
+                data.get("entity_id_fields", DEFAULT_GTS_CONFIG.entity_id_fields)
+            ),
+            schema_id_fields=list(
+                data.get("schema_id_fields", DEFAULT_GTS_CONFIG.schema_id_fields)
+            ),
         )
 
     @staticmethod
@@ -288,15 +312,12 @@ class GtsOps:
         self.store = GtsStore(self._reader)
 
     def add_entity(
-        self,
-        content: Dict[str, Any],
-        validate: bool = False
+        self, content: Dict[str, Any], validate: bool = False
     ) -> GtsAddEntityResult:
         entity = JsonEntity(content=content, cfg=self.cfg)
         if not entity.gts_id:
             return GtsAddEntityResult(
-                ok=False,
-                error="Unable to detect GTS ID in entity"
+                ok=False, error="Unable to detect GTS ID in entity"
             )
 
         # Register the entity first
@@ -308,8 +329,7 @@ class GtsOps:
                 self.store.validate_schema(entity.gts_id.id)
             except Exception as e:
                 return GtsAddEntityResult(
-                    ok=False,
-                    error=f"Validation failed: {str(e)}"
+                    ok=False, error=f"Validation failed: {str(e)}"
                 )
 
         # If validation is requested, validate the instance as well
@@ -318,15 +338,14 @@ class GtsOps:
                 self.store.validate_instance(entity.gts_id.id)
             except Exception as e:
                 return GtsAddEntityResult(
-                    ok=False,
-                    error=f"Validation failed: {str(e)}"
+                    ok=False, error=f"Validation failed: {str(e)}"
                 )
 
         return GtsAddEntityResult(
             ok=True,
             id=entity.gts_id.id,
             schema_id=entity.schemaId,
-            is_schema=entity.is_schema
+            is_schema=entity.is_schema,
         )
 
     def add_entities(self, items: List[Dict[str, Any]]) -> GtsAddEntitiesResult:
@@ -376,7 +395,9 @@ class GtsOps:
             match = c.wildcard_match(p)
             return GtsIdMatchResult(candidate=candidate, pattern=pattern, match=match)
         except Exception as e:
-            return GtsIdMatchResult(candidate=candidate, pattern=pattern, match=False, error=str(e))
+            return GtsIdMatchResult(
+                candidate=candidate, pattern=pattern, match=False, error=str(e)
+            )
 
     def uuid(self, gts_id: str) -> GtsUuidResult:
         g = GtsID(gts_id)
@@ -410,7 +431,9 @@ class GtsOps:
         graph = self.store.build_schema_graph(gts_id)
         return GtsSchemaGraphResult(graph=graph)
 
-    def compatibility(self, old_schema_id: str, new_schema_id: str) -> JsonEntityCastResult:
+    def compatibility(
+        self, old_schema_id: str, new_schema_id: str
+    ) -> JsonEntityCastResult:
         return self.store.is_minor_compatible(old_schema_id, new_schema_id)
 
     def cast(self, from_id: str, to_schema_id: str) -> JsonEntityCastResult:
@@ -425,10 +448,14 @@ class GtsOps:
     def attr(self, gts_with_path: str) -> JsonPathResolver:
         gts, path = GtsID.split_at_path(gts_with_path)
         if path is None:
-            return JsonPathResolver(gts_id=gts, content=None).failure("", "Attribute selector requires '@path' in the identifier")
+            return JsonPathResolver(gts_id=gts, content=None).failure(
+                "", "Attribute selector requires '@path' in the identifier"
+            )
         entity = self.store.get(gts)
         if not entity:
-            return JsonPathResolver(gts_id=gts, content=None).failure(path, f"Entity not found: {gts}")
+            return JsonPathResolver(gts_id=gts, content=None).failure(
+                path, f"Entity not found: {gts}"
+            )
         return entity.resolve_path(path)
 
     def extract_id(self, content: Dict[str, Any]) -> GtsExtractIdResult:
@@ -454,21 +481,17 @@ class GtsOps:
             entity = self.store.get(gts_id)
             if not entity:
                 return GtsGetEntityResult(
-                    ok=False,
-                    error=f"Entity '{gts_id}' not found"
+                    ok=False, error=f"Entity '{gts_id}' not found"
                 )
             return GtsGetEntityResult(
                 ok=True,
                 id=entity.gts_id.id if entity.gts_id else gts_id,
                 schema_id=entity.schemaId,
                 is_schema=entity.is_schema,
-                content=entity.content
+                content=entity.content,
             )
         except Exception as e:
-            return GtsGetEntityResult(
-                ok=False,
-                error=str(e)
-            )
+            return GtsGetEntityResult(ok=False, error=str(e))
 
     def get_entities(self, limit: int = 100) -> GtsEntitiesListResult:
         """Get all entities in the registry.

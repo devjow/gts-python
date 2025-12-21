@@ -96,8 +96,12 @@ class JsonEntityCastResult:
             new_schema = to_schema_content
 
         # Check compatibility
-        is_backward, backward_errors = cls._check_backward_compatibility(old_schema, new_schema)
-        is_forward, forward_errors = cls._check_forward_compatibility(old_schema, new_schema)
+        is_backward, backward_errors = cls._check_backward_compatibility(
+            old_schema, new_schema
+        )
+        is_forward, forward_errors = cls._check_forward_compatibility(
+            old_schema, new_schema
+        )
 
         # Apply casting rules to the instance
         added: List[str] = []
@@ -105,10 +109,14 @@ class JsonEntityCastResult:
         reasons: List[str] = []
 
         try:
-            casted, added, removed, incompatibility_reasons = cls._cast_instance_to_schema(
-                copy.deepcopy(from_instance_content) if isinstance(from_instance_content, dict) else {},
-                target_schema,
-                base_path="",
+            casted, added, removed, incompatibility_reasons = (
+                cls._cast_instance_to_schema(
+                    copy.deepcopy(from_instance_content)
+                    if isinstance(from_instance_content, dict)
+                    else {},
+                    target_schema,
+                    base_path="",
+                )
             )
         except SchemaCastError as e:
             return cls(
@@ -209,8 +217,16 @@ class JsonEntityCastResult:
         if not isinstance(instance, dict):
             raise SchemaCastError("Instance must be an object for casting")
 
-        target_props = schema.get("properties", {}) if isinstance(schema.get("properties"), dict) else {}
-        required = set(schema.get("required", [])) if isinstance(schema.get("required"), list) else set()
+        target_props = (
+            schema.get("properties", {})
+            if isinstance(schema.get("properties"), dict)
+            else {}
+        )
+        required = (
+            set(schema.get("required", []))
+            if isinstance(schema.get("required"), list)
+            else set()
+        )
         additional = schema.get("additionalProperties", True)
 
         # Start from current values
@@ -226,14 +242,20 @@ class JsonEntityCastResult:
                     added.append(path)
                 else:
                     path = f"{base_path}.{prop}" if base_path else prop
-                    incompatibility_reasons.append(f"Missing required property '{path}' and no default is defined")
+                    incompatibility_reasons.append(
+                        f"Missing required property '{path}' and no default is defined"
+                    )
                     # raise SchemaCastError(f"Missing required property '{path}' and no default is defined")
 
         # 2) For optional properties with defaults, set if missing (non-breaking)
         for prop, p_schema in target_props.items():
             if prop in required:
                 continue
-            if prop not in result and isinstance(p_schema, dict) and "default" in p_schema:
+            if (
+                prop not in result
+                and isinstance(p_schema, dict)
+                and "default" in p_schema
+            ):
                 result[prop] = copy.deepcopy(p_schema["default"])
                 path = f"{base_path}.{prop}" if base_path else prop
                 added.append(path)
@@ -273,8 +295,13 @@ class JsonEntityCastResult:
             p_type = p_schema.get("type")
             if p_type == "object" and isinstance(val, dict):
                 nested_schema = JsonEntityCastResult._effective_object_schema(p_schema)
-                new_obj, add_sub, rem_sub, new_incompatibility_reasons = JsonEntityCastResult._cast_instance_to_schema(
-                    val, nested_schema, base_path=(f"{base_path}.{prop}" if base_path else prop), incompatibility_reasons=incompatibility_reasons
+                new_obj, add_sub, rem_sub, new_incompatibility_reasons = (
+                    JsonEntityCastResult._cast_instance_to_schema(
+                        val,
+                        nested_schema,
+                        base_path=(f"{base_path}.{prop}" if base_path else prop),
+                        incompatibility_reasons=incompatibility_reasons,
+                    )
                 )
                 result[prop] = new_obj
                 added.extend(add_sub)
@@ -282,16 +309,27 @@ class JsonEntityCastResult:
                 incompatibility_reasons.extend(new_incompatibility_reasons)
             elif p_type == "array" and isinstance(val, list):
                 items_schema = p_schema.get("items")
-                if isinstance(items_schema, dict) and items_schema.get("type") == "object":
-                    nested_schema = JsonEntityCastResult._effective_object_schema(items_schema)
+                if (
+                    isinstance(items_schema, dict)
+                    and items_schema.get("type") == "object"
+                ):
+                    nested_schema = JsonEntityCastResult._effective_object_schema(
+                        items_schema
+                    )
                     new_list: List[Any] = []
                     for idx, item in enumerate(val):
                         if isinstance(item, dict):
-                            new_item, add_sub, rem_sub, new_incompatibility_reasons = JsonEntityCastResult._cast_instance_to_schema(
-                                item,
-                                nested_schema,
-                                base_path=(f"{base_path}.{prop}[{idx}]" if base_path else f"{prop}[{idx}]"),
-                                incompatibility_reasons=incompatibility_reasons,
+                            new_item, add_sub, rem_sub, new_incompatibility_reasons = (
+                                JsonEntityCastResult._cast_instance_to_schema(
+                                    item,
+                                    nested_schema,
+                                    base_path=(
+                                        f"{base_path}.{prop}[{idx}]"
+                                        if base_path
+                                        else f"{prop}[{idx}]"
+                                    ),
+                                    incompatibility_reasons=incompatibility_reasons,
+                                )
                             )
                             new_list.append(new_item)
                             added.extend(add_sub)
@@ -402,9 +440,13 @@ class JsonEntityCastResult:
         new_min = new_schema.get(min_key)
         if old_min is not None and new_min is not None:
             if check_tightening and new_min > old_min:
-                errors.append(f"Property '{prop}' {min_key} increased from {old_min} to {new_min}")
+                errors.append(
+                    f"Property '{prop}' {min_key} increased from {old_min} to {new_min}"
+                )
             elif not check_tightening and new_min < old_min:
-                errors.append(f"Property '{prop}' {min_key} decreased from {old_min} to {new_min}")
+                errors.append(
+                    f"Property '{prop}' {min_key} decreased from {old_min} to {new_min}"
+                )
         elif check_tightening and old_min is None and new_min is not None:
             errors.append(f"Property '{prop}' added {min_key} constraint: {new_min}")
         elif not check_tightening and old_min is not None and new_min is None:
@@ -415,9 +457,13 @@ class JsonEntityCastResult:
         new_max = new_schema.get(max_key)
         if old_max is not None and new_max is not None:
             if check_tightening and new_max < old_max:
-                errors.append(f"Property '{prop}' {max_key} decreased from {old_max} to {new_max}")
+                errors.append(
+                    f"Property '{prop}' {max_key} decreased from {old_max} to {new_max}"
+                )
             elif not check_tightening and new_max > old_max:
-                errors.append(f"Property '{prop}' {max_key} increased from {old_max} to {new_max}")
+                errors.append(
+                    f"Property '{prop}' {max_key} increased from {old_max} to {new_max}"
+                )
         elif check_tightening and old_max is None and new_max is not None:
             errors.append(f"Property '{prop}' added {max_key} constraint: {new_max}")
         elif not check_tightening and old_max is not None and new_max is None:
@@ -451,7 +497,12 @@ class JsonEntityCastResult:
         if prop_type in ("number", "integer"):
             errors.extend(
                 JsonEntityCastResult._check_min_max_constraint(
-                    prop, old_prop_schema, new_prop_schema, "minimum", "maximum", check_tightening
+                    prop,
+                    old_prop_schema,
+                    new_prop_schema,
+                    "minimum",
+                    "maximum",
+                    check_tightening,
                 )
             )
 
@@ -459,7 +510,12 @@ class JsonEntityCastResult:
         if prop_type == "string":
             errors.extend(
                 JsonEntityCastResult._check_min_max_constraint(
-                    prop, old_prop_schema, new_prop_schema, "minLength", "maxLength", check_tightening
+                    prop,
+                    old_prop_schema,
+                    new_prop_schema,
+                    "minLength",
+                    "maxLength",
+                    check_tightening,
                 )
             )
 
@@ -467,7 +523,12 @@ class JsonEntityCastResult:
         if prop_type == "array":
             errors.extend(
                 JsonEntityCastResult._check_min_max_constraint(
-                    prop, old_prop_schema, new_prop_schema, "minItems", "maxItems", check_tightening
+                    prop,
+                    old_prop_schema,
+                    new_prop_schema,
+                    "minItems",
+                    "maxItems",
+                    check_tightening,
                 )
             )
 
@@ -511,7 +572,9 @@ class JsonEntityCastResult:
             # Forward: cannot remove required properties
             removed_required = old_required - new_required
             if removed_required:
-                errors.append(f"Removed required properties: {', '.join(removed_required)}")
+                errors.append(
+                    f"Removed required properties: {', '.join(removed_required)}"
+                )
 
         # Check properties that exist in both schemas
         common_props = set(old_props.keys()) & set(new_props.keys())
@@ -523,7 +586,9 @@ class JsonEntityCastResult:
             old_type = old_prop_schema.get("type")
             new_type = new_prop_schema.get("type")
             if old_type and new_type and old_type != new_type:
-                errors.append(f"Property '{prop}' type changed from {old_type} to {new_type}")
+                errors.append(
+                    f"Property '{prop}' type changed from {old_type} to {new_type}"
+                )
 
             # Check enum constraints
             old_enum = old_prop_schema.get("enum")
@@ -535,12 +600,16 @@ class JsonEntityCastResult:
                     # Backward: cannot add enum values
                     added_enum_values = new_enum_set - old_enum_set
                     if added_enum_values:
-                        errors.append(f"Property '{prop}' added enum values: {added_enum_values}")
+                        errors.append(
+                            f"Property '{prop}' added enum values: {added_enum_values}"
+                        )
                 else:
                     # Forward: cannot remove enum values
                     removed_enum_values = old_enum_set - new_enum_set
                     if removed_enum_values:
-                        errors.append(f"Property '{prop}' removed enum values: {removed_enum_values}")
+                        errors.append(
+                            f"Property '{prop}' removed enum values: {removed_enum_values}"
+                        )
 
             # Check constraint compatibility
             constraint_errors = JsonEntityCastResult._check_constraint_compatibility(
@@ -550,8 +619,10 @@ class JsonEntityCastResult:
 
             # Recursively check nested object properties
             if old_type == "object" and new_type == "object":
-                nested_compat, nested_errors = JsonEntityCastResult._check_schema_compatibility(
-                    old_prop_schema, new_prop_schema, check_backward
+                nested_compat, nested_errors = (
+                    JsonEntityCastResult._check_schema_compatibility(
+                        old_prop_schema, new_prop_schema, check_backward
+                    )
                 )
                 if not nested_compat:
                     for err in nested_errors:
@@ -577,7 +648,9 @@ class JsonEntityCastResult:
         - Cannot add enum values
         - Cannot tighten constraints (decrease max, increase min, etc.)
         """
-        return JsonEntityCastResult._check_schema_compatibility(old_schema, new_schema, check_backward=True)
+        return JsonEntityCastResult._check_schema_compatibility(
+            old_schema, new_schema, check_backward=True
+        )
 
     @staticmethod
     def _check_forward_compatibility(
@@ -596,7 +669,9 @@ class JsonEntityCastResult:
         - Cannot remove enum values
         - Cannot relax constraints (increase max, decrease min, etc.)
         """
-        return JsonEntityCastResult._check_schema_compatibility(old_schema, new_schema, check_backward=False)
+        return JsonEntityCastResult._check_schema_compatibility(
+            old_schema, new_schema, check_backward=False
+        )
 
     @staticmethod
     def _diff_objects(
@@ -659,7 +734,9 @@ class JsonEntityCastResult:
     ) -> bool:
         if not isinstance(a, dict) or not isinstance(b, dict):
             if a != b:
-                reasons.append(f"{JsonEntityCastResult._path_label(path)}: value changed")
+                reasons.append(
+                    f"{JsonEntityCastResult._path_label(path)}: value changed"
+                )
                 return False
             return True
 
@@ -676,8 +753,12 @@ class JsonEntityCastResult:
                     )
             return False
 
-        a_req = set(a.get("required", [])) if isinstance(a.get("required"), list) else set()
-        b_req = set(b.get("required", [])) if isinstance(b.get("required"), list) else set()
+        a_req = (
+            set(a.get("required", [])) if isinstance(a.get("required"), list) else set()
+        )
+        b_req = (
+            set(b.get("required", [])) if isinstance(b.get("required"), list) else set()
+        )
         if a_req != b_req:
             added_req = sorted(list(b_req - a_req))
             removed_req = sorted(list(a_req - b_req))
@@ -693,8 +774,12 @@ class JsonEntityCastResult:
                 )
             return False
 
-        a_props = a.get("properties", {}) if isinstance(a.get("properties"), dict) else {}
-        b_props = b.get("properties", {}) if isinstance(b.get("properties"), dict) else {}
+        a_props = (
+            a.get("properties", {}) if isinstance(a.get("properties"), dict) else {}
+        )
+        b_props = (
+            b.get("properties", {}) if isinstance(b.get("properties"), dict) else {}
+        )
         common = set(a_props.keys()) & set(b_props.keys())
         for k in common:
             next_path = f"{path}.properties.{k}" if path else f"properties.{k}"

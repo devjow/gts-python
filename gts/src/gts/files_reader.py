@@ -40,7 +40,7 @@ class GtsFileReader(GtsReader):
 
     def _collect_files(self) -> None:
         """Collect all JSON files from the specified paths, following symlinks."""
-        valid_extensions = {'.json', '.jsonc', '.gts'}
+        valid_extensions = {".json", ".jsonc", ".gts"}
         seen: set[str] = set()
         collected: List[Path] = []
 
@@ -85,29 +85,21 @@ class GtsFileReader(GtsReader):
         try:
             content = self._load_json_file(file_path)
             json_file = JsonFile(
-                path=str(file_path),
-                name=file_path.name,
-                content=content
+                path=str(file_path), name=file_path.name, content=content
             )
 
             # Handle both single objects and arrays
             if isinstance(content, list):
                 for idx, item in enumerate(content):
                     entity = JsonEntity(
-                        file=json_file,
-                        list_sequence=idx,
-                        content=item,
-                        cfg=self.cfg
+                        file=json_file, list_sequence=idx, content=item, cfg=self.cfg
                     )
                     if entity.gts_id:
                         logging.debug(f"- discovered entity: {entity.gts_id.id}")
                         entities.append(entity)
             else:
                 entity = JsonEntity(
-                    file=json_file,
-                    list_sequence=None,
-                    content=content,
-                    cfg=self.cfg
+                    file=json_file, list_sequence=None, content=content, cfg=self.cfg
                 )
                 if entity.gts_id:
                     logging.debug(f"- discovered entity: {entity.gts_id.id}")

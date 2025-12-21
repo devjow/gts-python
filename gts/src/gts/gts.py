@@ -11,11 +11,17 @@ GTS_SEGMENT_TOKEN_REGEX = re.compile(r"^[a-z_][a-z0-9_]*$")
 
 
 class GtsInvalidSegment(ValueError):
-    def __init__(self, num: int, offset: int, segment: str, cause: Optional[str] = None):
+    def __init__(
+        self, num: int, offset: int, segment: str, cause: Optional[str] = None
+    ):
         if cause:
-            super().__init__(f"Invalid GTS segment #{num} @ offset {offset}: '{segment}': {cause}")
+            super().__init__(
+                f"Invalid GTS segment #{num} @ offset {offset}: '{segment}': {cause}"
+            )
         else:
-            super().__init__(f"Invalid GTS segment #{num} @ offset {offset}: '{segment}'")
+            super().__init__(
+                f"Invalid GTS segment #{num} @ offset {offset}: '{segment}'"
+            )
         self.num = num
         self.offset = offset
         self.segment = segment
@@ -86,7 +92,9 @@ class GtsIdSegment:
 
             for t in range(0, 4):
                 if not GTS_SEGMENT_TOKEN_REGEX.match(tokens[t]):
-                    raise GtsInvalidSegment(num, offset, segment, "Invalid segment token: " + tokens[t])
+                    raise GtsInvalidSegment(
+                        num, offset, segment, "Invalid segment token: " + tokens[t]
+                    )
 
         if len(tokens) > 0:
             if tokens[0] == "*":
@@ -118,16 +126,24 @@ class GtsIdSegment:
                 return
 
             if not tokens[4].startswith("v"):
-                raise GtsInvalidSegment(num, offset, segment, "Major version must start with 'v'")
+                raise GtsInvalidSegment(
+                    num, offset, segment, "Major version must start with 'v'"
+                )
             try:
                 self.ver_major = int(tokens[4][1:])
             except ValueError:
-                raise GtsInvalidSegment(num, offset, segment, "Major version must be an integer")
+                raise GtsInvalidSegment(
+                    num, offset, segment, "Major version must be an integer"
+                )
 
             if self.ver_major < 0:
-                raise GtsInvalidSegment(num, offset, segment, "Major version must be >= 0")
+                raise GtsInvalidSegment(
+                    num, offset, segment, "Major version must be >= 0"
+                )
             if str(self.ver_major) != tokens[4][1:]:
-                raise GtsInvalidSegment(num, offset, segment, "Major version must be an integer")
+                raise GtsInvalidSegment(
+                    num, offset, segment, "Major version must be an integer"
+                )
 
         if len(tokens) > 5:
             if tokens[5] == "*":
@@ -137,12 +153,18 @@ class GtsIdSegment:
             try:
                 self.ver_minor = int(tokens[5])
             except ValueError:
-                raise GtsInvalidSegment(num, offset, segment, "Minor version must be an integer")
+                raise GtsInvalidSegment(
+                    num, offset, segment, "Minor version must be an integer"
+                )
 
             if self.ver_minor < 0:
-                raise GtsInvalidSegment(num, offset, segment, "Minor version must be >= 0")
+                raise GtsInvalidSegment(
+                    num, offset, segment, "Minor version must be >= 0"
+                )
             if str(self.ver_minor) != tokens[5]:
-                raise GtsInvalidSegment(num, offset, segment, "Minor version must be an integer")
+                raise GtsInvalidSegment(
+                    num, offset, segment, "Minor version must be an integer"
+                )
 
 
 class GtsID:
@@ -165,7 +187,7 @@ class GtsID:
         self.gts_id_segments: List[GtsIdSegment] = []
 
         # split preserving empties to detect trailing '~'
-        _parts = raw[len(GTS_PREFIX):].split("~")
+        _parts = raw[len(GTS_PREFIX) :].split("~")
         parts = []
         for i in range(0, len(_parts)):
             if i < len(_parts) - 1:
@@ -178,9 +200,11 @@ class GtsID:
         offset = len(GTS_PREFIX)
         for i in range(0, len(parts)):
             if parts[i] == "":
-                raise GtsInvalidId(id, f"GTS segment #{i+1} @ offset {offset} is empty")
+                raise GtsInvalidId(
+                    id, f"GTS segment #{i + 1} @ offset {offset} is empty"
+                )
 
-            self.gts_id_segments.append(GtsIdSegment(i+1, offset, parts[i]))
+            self.gts_id_segments.append(GtsIdSegment(i + 1, offset, parts[i]))
             offset += len(parts[i])
 
     @property
@@ -209,7 +233,9 @@ class GtsID:
         p = pattern.id
 
         # Helper function to match segments with version flexibility
-        def match_segments(pattern_segs: List[GtsIdSegment], candidate_segs: List[GtsIdSegment]) -> bool:
+        def match_segments(
+            pattern_segs: List[GtsIdSegment], candidate_segs: List[GtsIdSegment]
+        ) -> bool:
             # If pattern is longer than candidate, no match
             if len(pattern_segs) > len(candidate_segs):
                 return False
@@ -231,7 +257,10 @@ class GtsID:
                     # Check version fields if they are set in the pattern
                     if p_seg.ver_major != 0 and p_seg.ver_major != c_seg.ver_major:
                         return False
-                    if p_seg.ver_minor is not None and p_seg.ver_minor != c_seg.ver_minor:
+                    if (
+                        p_seg.ver_minor is not None
+                        and p_seg.ver_minor != c_seg.ver_minor
+                    ):
                         return False
                     # Check is_type flag if set
                     if p_seg.is_type and p_seg.is_type != c_seg.is_type:
@@ -270,12 +299,12 @@ class GtsID:
             return True
 
         # No wildcard case - need exact match with version flexibility
-        if '*' not in p:
+        if "*" not in p:
             # Parse both as segments and compare
             return match_segments(pattern.gts_id_segments, self.gts_id_segments)
 
         # Wildcard case
-        if p.count('*') > 1 or not p.endswith('*'):
+        if p.count("*") > 1 or not p.endswith("*"):
             return False
 
         # Use segment matching for wildcard patterns too
@@ -322,9 +351,14 @@ class GtsWildcard(GtsID):
         if not p.startswith(GTS_PREFIX):
             raise GtsInvalidWildcard(pattern, f"Does not start with '{GTS_PREFIX}'")
         if p.count("*") > 1:
-            raise GtsInvalidWildcard(pattern, "The wildcard '*' token is allowed only once")
+            raise GtsInvalidWildcard(
+                pattern, "The wildcard '*' token is allowed only once"
+            )
         if "*" in p and not p.endswith(".*") and not p.endswith("~*"):
-            raise GtsInvalidWildcard(pattern, "The wildcard '*' token is allowed only at the end of the pattern")
+            raise GtsInvalidWildcard(
+                pattern,
+                "The wildcard '*' token is allowed only at the end of the pattern",
+            )
         try:
             super().__init__(p)
         except GtsInvalidId as e:
