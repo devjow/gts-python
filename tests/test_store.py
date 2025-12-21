@@ -12,29 +12,29 @@ from gts.store import (
     StoreGtsSchemaForInstanceNotFound,
     StoreGtsCastFromSchemaNotAllowed,
 )
-from gts.entities import JsonEntity, DEFAULT_GTS_CONFIG
+from gts.entities import GtsEntity, DEFAULT_GTS_CONFIG
 from gts.gts import GtsID
 
 
 class MockGtsReader(GtsReader):
     """Mock reader for testing."""
 
-    def __init__(self, entities: list[JsonEntity]):
+    def __init__(self, entities: list[GtsEntity]):
         self._entities = entities
         self._index = 0
 
-    def __iter__(self) -> Iterator[JsonEntity]:
+    def __iter__(self) -> Iterator[GtsEntity]:
         self._index = 0
         return self
 
-    def __next__(self) -> JsonEntity:
+    def __next__(self) -> GtsEntity:
         if self._index >= len(self._entities):
             raise StopIteration
         entity = self._entities[self._index]
         self._index += 1
         return entity
 
-    def read_by_id(self, entity_id: str) -> Optional[JsonEntity]:
+    def read_by_id(self, entity_id: str) -> Optional[GtsEntity]:
         for entity in self._entities:
             if entity.gts_id and entity.gts_id.id == entity_id:
                 return entity
@@ -56,7 +56,7 @@ class TestGtsStore:
     def test_store_population_from_reader(self):
         """Test store is populated from reader."""
         gts_id = GtsID("gts.vendor.package.namespace.type.v1~")
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={"name": "test"},
             gts_id=gts_id,
             is_schema=True,
@@ -74,7 +74,7 @@ class TestGtsStore:
         store = GtsStore(reader)
 
         gts_id = GtsID("gts.vendor.package.namespace.type.v1~")
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={"registered": True},
             gts_id=gts_id,
         )
@@ -111,7 +111,7 @@ class TestGtsStore:
     def test_store_get_schema_content(self):
         """Test getting schema content."""
         gts_id = GtsID("gts.vendor.package.namespace.type.v1~")
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={"type": "object"},
             gts_id=gts_id,
             is_schema=True,
@@ -133,7 +133,7 @@ class TestGtsStore:
     def test_store_items(self):
         """Test iterating over store items."""
         entities = [
-            JsonEntity(
+            GtsEntity(
                 content={"name": f"entity{i}"},
                 gts_id=GtsID(f"gts.vendor.package.namespace.type{i}.v1~"),
             )
@@ -152,7 +152,7 @@ class TestGtsStoreQuery:
     def _create_store_with_entities(self):
         """Helper to create a store with test entities."""
         entities = [
-            JsonEntity(
+            GtsEntity(
                 content={
                     "$id": "gts.vendor.package.namespace.user.v1~vendor.package.namespace.alice.v1",
                     "name": "alice",
@@ -160,7 +160,7 @@ class TestGtsStoreQuery:
                 },
                 cfg=DEFAULT_GTS_CONFIG,
             ),
-            JsonEntity(
+            GtsEntity(
                 content={
                     "$id": "gts.vendor.package.namespace.user.v1~vendor.package.namespace.bob.v1",
                     "name": "bob",
@@ -168,7 +168,7 @@ class TestGtsStoreQuery:
                 },
                 cfg=DEFAULT_GTS_CONFIG,
             ),
-            JsonEntity(
+            GtsEntity(
                 content={
                     "$id": "gts.vendor.package.namespace.order.v1~vendor.package.namespace.order1.v1",
                     "orderId": "order1",
@@ -242,7 +242,7 @@ class TestGtsStoreValidation:
 
     def _create_store_with_schema_and_instance(self):
         """Helper to create store with schema and instance."""
-        schema = JsonEntity(
+        schema = GtsEntity(
             content={
                 "$schema": "http://json-schema.org/draft-07/schema#",
                 "$id": "gts.vendor.package.namespace.type.v1~",
@@ -255,7 +255,7 @@ class TestGtsStoreValidation:
             cfg=DEFAULT_GTS_CONFIG,
         )
 
-        instance = JsonEntity(
+        instance = GtsEntity(
             content={
                 "$id": "gts.vendor.package.namespace.type.v1~vendor.package.namespace.inst.v1",
                 "gtsType": "gts.vendor.package.namespace.type.v1~",
@@ -314,7 +314,7 @@ class TestGtsStoreBuildGraph:
 
     def test_build_graph_simple(self):
         """Test building a simple graph."""
-        schema = JsonEntity(
+        schema = GtsEntity(
             content={
                 "$id": "gts.vendor.package.namespace.type.v1~",
                 "$schema": "http://json-schema.org/draft-07/schema#",

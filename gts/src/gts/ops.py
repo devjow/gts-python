@@ -314,7 +314,7 @@ class GtsOps:
     def add_entity(
         self, content: Dict[str, Any], validate: bool = False
     ) -> GtsAddEntityResult:
-        entity = JsonEntity(content=content, cfg=self.cfg)
+        entity = GtsEntity(content=content, cfg=self.cfg)
         if not entity.gts_id:
             return GtsAddEntityResult(
                 ok=False, error="Unable to detect GTS ID in entity"
@@ -433,33 +433,33 @@ class GtsOps:
 
     def compatibility(
         self, old_schema_id: str, new_schema_id: str
-    ) -> JsonEntityCastResult:
+    ) -> GtsEntityCastResult:
         return self.store.is_minor_compatible(old_schema_id, new_schema_id)
 
-    def cast(self, from_id: str, to_schema_id: str) -> JsonEntityCastResult:
+    def cast(self, from_id: str, to_schema_id: str) -> GtsEntityCastResult:
         try:
             return self.store.cast(from_id, to_schema_id)
         except Exception as e:
-            return JsonEntityCastResult(error=str(e))
+            return GtsEntityCastResult(error=str(e))
 
     def query(self, expr: str, limit: int = 100) -> GtsStoreQueryResult:
         return self.store.query(expr, limit)
 
-    def attr(self, gts_with_path: str) -> JsonPathResolver:
+    def attr(self, gts_with_path: str) -> GtsPathResolver:
         gts, path = GtsID.split_at_path(gts_with_path)
         if path is None:
-            return JsonPathResolver(gts_id=gts, content=None).failure(
+            return GtsPathResolver(gts_id=gts, content=None).failure(
                 "", "Attribute selector requires '@path' in the identifier"
             )
         entity = self.store.get(gts)
         if not entity:
-            return JsonPathResolver(gts_id=gts, content=None).failure(
+            return GtsPathResolver(gts_id=gts, content=None).failure(
                 path, f"Entity not found: {gts}"
             )
         return entity.resolve_path(path)
 
     def extract_id(self, content: Dict[str, Any]) -> GtsExtractIdResult:
-        entity = JsonEntity(content=content, cfg=self.cfg)
+        entity = GtsEntity(content=content, cfg=self.cfg)
         return GtsExtractIdResult(
             id=entity.gts_id.id if entity.gts_id else "",
             schema_id=entity.schemaId,
