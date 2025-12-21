@@ -6,12 +6,12 @@ from .gts import (
 from .entities import (
     ValidationError,
     ValidationResult,
-    JsonFile,
-    JsonEntity,
+    GtsFile,
+    GtsEntity,
     GtsConfig,
     DEFAULT_GTS_CONFIG,
 )
-from .path_resolver import JsonPathResolver
+from .path_resolver import GtsPathResolver
 from .store import (
     GtsReader,
     GtsStore,
@@ -26,12 +26,21 @@ __all__ = [
     "GtsWildcard",
     "ValidationError",
     "ValidationResult",
-    "JsonFile",
-    "JsonEntity",
-    "JsonPathResolver",
+    "GtsFile",
+    "GtsEntity",
+    "GtsPathResolver",
     "GtsConfig",
     "DEFAULT_GTS_CONFIG",
     "GtsReader",
     "GtsStore",
     "GtsFileReader",
+    # Backward compatibility aliases
+    "JsonFile",
+    "JsonEntity",
+    "JsonPathResolver",
 ]
+
+# Backward compatibility aliases
+JsonFile = GtsFile
+JsonEntity = GtsEntity
+JsonPathResolver = GtsPathResolver

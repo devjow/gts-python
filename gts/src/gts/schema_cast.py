@@ -15,7 +15,7 @@ class SchemaCastError(Exception):
 
 
 @dataclass
-class JsonEntityCastResult:
+class GtsEntityCastResult:
     from_id: str = ""
     to_id: str = ""
     direction: str = "unknown"
@@ -77,7 +77,7 @@ class JsonEntityCastResult:
         from_schema_content: dict,
         to_schema_content: dict,
         resolver: Optional[Any] = None,
-    ) -> JsonEntityCastResult:
+    ) -> GtsEntityCastResult:
         # Flatten target schema to merge allOf and get all properties including const values
         target_schema = cls._flatten_schema(to_schema_content)
 
@@ -294,14 +294,9 @@ class JsonEntityCastResult:
                 continue
             p_type = p_schema.get("type")
             if p_type == "object" and isinstance(val, dict):
-                nested_schema = JsonEntityCastResult._effective_object_schema(p_schema)
-                new_obj, add_sub, rem_sub, new_incompatibility_reasons = (
-                    JsonEntityCastResult._cast_instance_to_schema(
-                        val,
-                        nested_schema,
-                        base_path=(f"{base_path}.{prop}" if base_path else prop),
-                        incompatibility_reasons=incompatibility_reasons,
-                    )
+                nested_schema = GtsEntityCastResult._effective_object_schema(p_schema)
+                new_obj, add_sub, rem_sub, new_incompatibility_reasons = GtsEntityCastResult._cast_instance_to_schema(
+                    val, nested_schema, base_path=(f"{base_path}.{prop}" if base_path else prop), incompatibility_reasons=incompatibility_reasons
                 )
                 result[prop] = new_obj
                 added.extend(add_sub)
@@ -309,27 +304,16 @@ class JsonEntityCastResult:
                 incompatibility_reasons.extend(new_incompatibility_reasons)
             elif p_type == "array" and isinstance(val, list):
                 items_schema = p_schema.get("items")
-                if (
-                    isinstance(items_schema, dict)
-                    and items_schema.get("type") == "object"
-                ):
-                    nested_schema = JsonEntityCastResult._effective_object_schema(
-                        items_schema
-                    )
+                if isinstance(items_schema, dict) and items_schema.get("type") == "object":
+                    nested_schema = GtsEntityCastResult._effective_object_schema(items_schema)
                     new_list: List[Any] = []
                     for idx, item in enumerate(val):
                         if isinstance(item, dict):
-                            new_item, add_sub, rem_sub, new_incompatibility_reasons = (
-                                JsonEntityCastResult._cast_instance_to_schema(
-                                    item,
-                                    nested_schema,
-                                    base_path=(
-                                        f"{base_path}.{prop}[{idx}]"
-                                        if base_path
-                                        else f"{prop}[{idx}]"
-                                    ),
-                                    incompatibility_reasons=incompatibility_reasons,
-                                )
+                            new_item, add_sub, rem_sub, new_incompatibility_reasons = GtsEntityCastResult._cast_instance_to_schema(
+                                item,
+                                nested_schema,
+                                base_path=(f"{base_path}.{prop}[{idx}]" if base_path else f"{prop}[{idx}]"),
+                                incompatibility_reasons=incompatibility_reasons,
                             )
                             new_list.append(new_item)
                             added.extend(add_sub)
@@ -349,7 +333,7 @@ class JsonEntityCastResult:
     ) -> None:
         """Validate instance against schema, but allow const values to differ if both are GTS IDs."""
         # Create a modified schema that removes const constraints for GTS IDs
-        modified_schema = JsonEntityCastResult._remove_gts_const_constraints(schema)
+        modified_schema = GtsEntityCastResult._remove_gts_const_constraints(schema)
 
         if resolver is not None:
             js_validate(instance=instance, schema=modified_schema, resolver=resolver)
@@ -371,10 +355,10 @@ class JsonEntityCastResult:
                 result["type"] = "string"
                 continue
             elif isinstance(value, dict):
-                result[key] = JsonEntityCastResult._remove_gts_const_constraints(value)
+                result[key] = GtsEntityCastResult._remove_gts_const_constraints(value)
             elif isinstance(value, list):
                 result[key] = [
-                    JsonEntityCastResult._remove_gts_const_constraints(item)
+                    GtsEntityCastResult._remove_gts_const_constraints(item)
                     if isinstance(item, dict)
                     else item
                     for item in value
@@ -392,7 +376,7 @@ class JsonEntityCastResult:
         # Merge allOf schemas
         if "allOf" in schema:
             for sub_schema in schema["allOf"]:
-                flattened = JsonEntityCastResult._flatten_schema(sub_schema)
+                flattened = GtsEntityCastResult._flatten_schema(sub_schema)
                 result["properties"].update(flattened.get("properties", {}))
                 result["required"].extend(flattened.get("required", []))
                 # Preserve additionalProperties from sub-schemas (last one wins)
@@ -496,39 +480,24 @@ class JsonEntityCastResult:
         # Numeric constraints (for number/integer types)
         if prop_type in ("number", "integer"):
             errors.extend(
-                JsonEntityCastResult._check_min_max_constraint(
-                    prop,
-                    old_prop_schema,
-                    new_prop_schema,
-                    "minimum",
-                    "maximum",
-                    check_tightening,
+                GtsEntityCastResult._check_min_max_constraint(
+                    prop, old_prop_schema, new_prop_schema, "minimum", "maximum", check_tightening
                 )
             )
 
         # String constraints
         if prop_type == "string":
             errors.extend(
-                JsonEntityCastResult._check_min_max_constraint(
-                    prop,
-                    old_prop_schema,
-                    new_prop_schema,
-                    "minLength",
-                    "maxLength",
-                    check_tightening,
+                GtsEntityCastResult._check_min_max_constraint(
+                    prop, old_prop_schema, new_prop_schema, "minLength", "maxLength", check_tightening
                 )
             )
 
         # Array constraints
         if prop_type == "array":
             errors.extend(
-                JsonEntityCastResult._check_min_max_constraint(
-                    prop,
-                    old_prop_schema,
-                    new_prop_schema,
-                    "minItems",
-                    "maxItems",
-                    check_tightening,
+                GtsEntityCastResult._check_min_max_constraint(
+                    prop, old_prop_schema, new_prop_schema, "minItems", "maxItems", check_tightening
                 )
             )
 
@@ -554,8 +523,8 @@ class JsonEntityCastResult:
         errors: List[str] = []
 
         # Flatten schemas to handle allOf
-        old_flat = JsonEntityCastResult._flatten_schema(old_schema)
-        new_flat = JsonEntityCastResult._flatten_schema(new_schema)
+        old_flat = GtsEntityCastResult._flatten_schema(old_schema)
+        new_flat = GtsEntityCastResult._flatten_schema(new_schema)
 
         old_props = old_flat.get("properties", {})
         new_props = new_flat.get("properties", {})
@@ -612,17 +581,15 @@ class JsonEntityCastResult:
                         )
 
             # Check constraint compatibility
-            constraint_errors = JsonEntityCastResult._check_constraint_compatibility(
+            constraint_errors = GtsEntityCastResult._check_constraint_compatibility(
                 prop, old_prop_schema, new_prop_schema, check_tightening=check_backward
             )
             errors.extend(constraint_errors)
 
             # Recursively check nested object properties
             if old_type == "object" and new_type == "object":
-                nested_compat, nested_errors = (
-                    JsonEntityCastResult._check_schema_compatibility(
-                        old_prop_schema, new_prop_schema, check_backward
-                    )
+                nested_compat, nested_errors = GtsEntityCastResult._check_schema_compatibility(
+                    old_prop_schema, new_prop_schema, check_backward
                 )
                 if not nested_compat:
                     for err in nested_errors:
@@ -648,9 +615,7 @@ class JsonEntityCastResult:
         - Cannot add enum values
         - Cannot tighten constraints (decrease max, increase min, etc.)
         """
-        return JsonEntityCastResult._check_schema_compatibility(
-            old_schema, new_schema, check_backward=True
-        )
+        return GtsEntityCastResult._check_schema_compatibility(old_schema, new_schema, check_backward=True)
 
     @staticmethod
     def _check_forward_compatibility(
@@ -669,9 +634,7 @@ class JsonEntityCastResult:
         - Cannot remove enum values
         - Cannot relax constraints (increase max, decrease min, etc.)
         """
-        return JsonEntityCastResult._check_schema_compatibility(
-            old_schema, new_schema, check_backward=False
-        )
+        return GtsEntityCastResult._check_schema_compatibility(old_schema, new_schema, check_backward=False)
 
     @staticmethod
     def _diff_objects(
@@ -705,7 +668,7 @@ class JsonEntityCastResult:
                 bf = bv.get("format")
                 if af != bf:
                     changed.append({"path": p, "change": f"format: {af} -> {bf}"})
-                JsonEntityCastResult._diff_objects(av, bv, p, added, removed, changed)
+                GtsEntityCastResult._diff_objects(av, bv, p, added, removed, changed)
 
         a_req = set(obj_a.get("required", [])) if isinstance(obj_a, dict) else set()
         b_req = set(obj_b.get("required", [])) if isinstance(obj_b, dict) else set()
@@ -734,14 +697,12 @@ class JsonEntityCastResult:
     ) -> bool:
         if not isinstance(a, dict) or not isinstance(b, dict):
             if a != b:
-                reasons.append(
-                    f"{JsonEntityCastResult._path_label(path)}: value changed"
-                )
+                reasons.append(f"{GtsEntityCastResult._path_label(path)}: value changed")
                 return False
             return True
 
-        fa = JsonEntityCastResult._filtered(a)
-        fb = JsonEntityCastResult._filtered(b)
+        fa = GtsEntityCastResult._filtered(a)
+        fb = GtsEntityCastResult._filtered(b)
         if fa != fb:
             keys = set(fa.keys()) | set(fb.keys())
             for k in sorted(keys):
@@ -749,7 +710,7 @@ class JsonEntityCastResult:
                 vb = fb.get(k, "<missing>")
                 if va != vb:
                     reasons.append(
-                        f"{JsonEntityCastResult._path_label(path)}: keyword '{k}' changed"
+                        f"{GtsEntityCastResult._path_label(path)}: keyword '{k}' changed"
                     )
             return False
 
@@ -764,12 +725,12 @@ class JsonEntityCastResult:
             removed_req = sorted(list(a_req - b_req))
             if added_req:
                 reasons.append(
-                    f"{JsonEntityCastResult._path_label(path)}: required added -> "
+                    f"{GtsEntityCastResult._path_label(path)}: required added -> "
                     f"{', '.join(added_req)}"
                 )
             if removed_req:
                 reasons.append(
-                    f"{JsonEntityCastResult._path_label(path)}: required removed -> "
+                    f"{GtsEntityCastResult._path_label(path)}: required removed -> "
                     f"{', '.join(removed_req)}"
                 )
             return False
@@ -783,7 +744,7 @@ class JsonEntityCastResult:
         common = set(a_props.keys()) & set(b_props.keys())
         for k in common:
             next_path = f"{path}.properties.{k}" if path else f"properties.{k}"
-            if not JsonEntityCastResult._only_optional_add_remove(
+            if not GtsEntityCastResult._only_optional_add_remove(
                 a_props[k], b_props[k], next_path, reasons
             ):
                 return False

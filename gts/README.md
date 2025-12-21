@@ -1,6 +1,48 @@
 # GTS Python Library
 
-A minimal, idiomatic Python library for working with **GTS** ([Global Type System](https://github.com/gts-spec/gts-spec)) identifiers and JSON/JSON Schema artifacts.
+A minimal, idiomatic Python library for working with **GTS** ([Global Type System](https://github.com/gts-spec/gts-spec)) identifiers and type definitions.
+
+## File Format Support
+
+GTS Python supports multiple file formats for schemas and instances:
+
+### JSON (Native)
+Standard JSON format with `.json`, `.jsonc`, and `.gts` extensions.
+
+### YAML
+Full YAML support with `.yaml` and `.yml` extensions. YAML files are automatically parsed and treated identically to JSON.
+
+```python
+from gts import GtsFileReader
+
+# Reads both JSON and YAML files
+reader = GtsFileReader("path/to/schemas/")
+for entity in reader:
+    print(f"{entity.gts_id.id}: {entity.file.name}")
+```
+
+### TypeSpec
+TypeSpec (`.tsp`) schemas must be pre-compiled to JSON Schema before use with gts-python.
+
+**Setup:**
+```bash
+# Install TypeSpec compiler
+npm install -g @typespec/compiler @typespec/json-schema
+
+# Compile TypeSpec to JSON Schema
+tsp compile --emit @typespec/json-schema your-schemas/
+```
+
+**Usage:**
+```python
+from gts import GtsFileReader
+
+# Point to the generated JSON Schema output directory
+reader = GtsFileReader("tsp-output/@typespec/json-schema/")
+entities = list(reader)
+```
+
+See [gts-spec TypeSpec examples](https://github.com/globaltypesystem/gts-spec/tree/main/examples/typespec) for sample TypeSpec definitions.
 
 ## Featureset
 
@@ -23,10 +65,10 @@ print(is_valid)  # True or False
 
 ```python
 import json
-from gts import JsonEntity, DEFAULT_GTS_CONFIG
+from gts import GtsEntity, DEFAULT_GTS_CONFIG
 
 content = json.load(open("path/to/file.json"))
-entity = JsonEntity(content=content, cfg=DEFAULT_GTS_CONFIG)
+entity = GtsEntity(content=content, cfg=DEFAULT_GTS_CONFIG)
 if entity.gts_id:
     print(entity.gts_id.id)
 ```
