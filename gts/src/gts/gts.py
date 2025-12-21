@@ -6,6 +6,7 @@ import uuid
 from typing import List, Optional, Tuple, Dict, Any
 
 GTS_PREFIX = "gts."
+GTS_URI_PREFIX = "gts://"
 GTS_NS = uuid.uuid5(uuid.NAMESPACE_URL, "gts")
 GTS_SEGMENT_TOKEN_REGEX = re.compile(r"^[a-z_][a-z0-9_]*$")
 
@@ -171,6 +172,10 @@ class GtsID:
     def __init__(self, id: str):
         raw = id.strip()
 
+        # Strip gts:// URI prefix if present
+        if raw.startswith(GTS_URI_PREFIX):
+            raw = raw[len(GTS_URI_PREFIX) :]
+
         # Validate it's lower case
         if raw != raw.lower():
             raise GtsInvalidId(id, "Must be lower case")
@@ -221,7 +226,11 @@ class GtsID:
 
     @classmethod
     def is_valid(cls, s: str) -> bool:
-        if not s.startswith(GTS_PREFIX):
+        # Strip gts:// URI prefix if present
+        normalized = s
+        if normalized.startswith(GTS_URI_PREFIX):
+            normalized = normalized[len(GTS_URI_PREFIX) :]
+        if not normalized.startswith(GTS_PREFIX):
             return False
         try:
             _ = cls(s)

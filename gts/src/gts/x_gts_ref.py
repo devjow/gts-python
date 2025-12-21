@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Callable
 import re
 
-from .gts import GtsID
+from .gts import GtsID, GTS_URI_PREFIX
 
 
 class XGtsRefValidationError(Exception):
@@ -318,6 +318,12 @@ class XGtsRefValidator:
 
         return None
 
+    def _normalize_gts_value(self, value: str) -> str:
+        """Strip gts:// URI prefix if present."""
+        if value.startswith(GTS_URI_PREFIX):
+            return value[len(GTS_URI_PREFIX) :]
+        return value
+
     def _resolve_pointer(self, schema: Dict[str, Any], pointer: str) -> Optional[str]:
         """
         Resolve a JSON Pointer in the schema.
@@ -344,9 +350,9 @@ class XGtsRefValidator:
             if current is None:
                 return None
 
-        # If current is a string, return it
+        # If current is a string, return it (normalizing gts:// prefix)
         if isinstance(current, str):
-            return current
+            return self._normalize_gts_value(current)
 
         # If current is a dict with x-gts-ref, resolve it
         if isinstance(current, dict) and "x-gts-ref" in current:
@@ -354,6 +360,6 @@ class XGtsRefValidator:
             if isinstance(ref_value, str):
                 if ref_value.startswith("/"):
                     return self._resolve_pointer(schema, ref_value)
-                return ref_value
+                return self._normalize_gts_value(ref_value)
 
         return None
