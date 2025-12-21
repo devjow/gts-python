@@ -70,6 +70,7 @@ jobs:
 
       # Unit tests (skip if no tests exist)
       - name: pytest
+        shell: bash
         run: |
           if [ -n "$(find tests/ -name 'test_*.py' -o -name '*_test.py' 2>/dev/null)" ]; then
             pytest tests/ -v --no-header
