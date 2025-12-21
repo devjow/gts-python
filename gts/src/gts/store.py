@@ -260,7 +260,7 @@ class GtsStore:
 
         # 1. Validate against JSON Schema meta-schema
         try:
-            from jsonschema import Draft7Validator, ValidationError
+            from jsonschema import Draft7Validator
             from jsonschema.validators import validator_for
 
             # Determine which meta-schema to use based on $schema field

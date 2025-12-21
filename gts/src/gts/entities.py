@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .gts import GtsID
 from .path_resolver import JsonPathResolver
@@ -320,8 +320,8 @@ class JsonEntity:
         if not isinstance(self.content, dict):
             return None
         # Look for common UUID fields
-        for field in ["id", "uuid", "instanceId", "instance_id"]:
-            val = self.content.get(field)
+        for field_name in ["id", "uuid", "instanceId", "instance_id"]:
+            val = self.content.get(field_name)
             if isinstance(val, str) and val.strip():
                 # Check if it looks like a UUID (basic check)
                 import re

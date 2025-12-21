@@ -4,7 +4,7 @@ import argparse
 import logging
 import json
 import sys
-from typing import Any, List
+from typing import List
 
 from .ops import GtsOps
 from .server import GtsHttpServer
