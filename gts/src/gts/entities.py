@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 from .gts import GtsID
-from .path_resolver import GtsPathResolver
 from .schema_cast import GtsEntityCastResult, SchemaCastError
+
+if TYPE_CHECKING:
+    from .path_resolver import GtsPathResolver
 
 
 @dataclass
@@ -166,16 +168,18 @@ class GtsEntity:
             return True
         return False
 
-    def resolve_path(self, path: str) -> JsonPathResolver:
-        resolver = JsonPathResolver(self.gts_id.id if self.gts_id else "", self.content)
+    def resolve_path(self, path: str) -> "GtsPathResolver":
+        from .path_resolver import GtsPathResolver
+
+        resolver = GtsPathResolver(self.gts_id.id if self.gts_id else "", self.content)
         return resolver.resolve(path)
 
     def cast(
         self,
-        to_schema: JsonEntity,
-        from_schema: JsonEntity,
+        to_schema: "GtsEntity",
+        from_schema: "GtsEntity",
         resolver: Optional[Any] = None,
-    ) -> JsonEntityCastResult:
+    ) -> GtsEntityCastResult:
         if self.is_schema:
             # When casting a schema, from_schema might be a standard JSON Schema (no gts_id)
             # In that case, skip the sanity check

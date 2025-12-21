@@ -295,8 +295,13 @@ class GtsEntityCastResult:
             p_type = p_schema.get("type")
             if p_type == "object" and isinstance(val, dict):
                 nested_schema = GtsEntityCastResult._effective_object_schema(p_schema)
-                new_obj, add_sub, rem_sub, new_incompatibility_reasons = GtsEntityCastResult._cast_instance_to_schema(
-                    val, nested_schema, base_path=(f"{base_path}.{prop}" if base_path else prop), incompatibility_reasons=incompatibility_reasons
+                new_obj, add_sub, rem_sub, new_incompatibility_reasons = (
+                    GtsEntityCastResult._cast_instance_to_schema(
+                        val,
+                        nested_schema,
+                        base_path=(f"{base_path}.{prop}" if base_path else prop),
+                        incompatibility_reasons=incompatibility_reasons,
+                    )
                 )
                 result[prop] = new_obj
                 added.extend(add_sub)
@@ -304,16 +309,27 @@ class GtsEntityCastResult:
                 incompatibility_reasons.extend(new_incompatibility_reasons)
             elif p_type == "array" and isinstance(val, list):
                 items_schema = p_schema.get("items")
-                if isinstance(items_schema, dict) and items_schema.get("type") == "object":
-                    nested_schema = GtsEntityCastResult._effective_object_schema(items_schema)
+                if (
+                    isinstance(items_schema, dict)
+                    and items_schema.get("type") == "object"
+                ):
+                    nested_schema = GtsEntityCastResult._effective_object_schema(
+                        items_schema
+                    )
                     new_list: List[Any] = []
                     for idx, item in enumerate(val):
                         if isinstance(item, dict):
-                            new_item, add_sub, rem_sub, new_incompatibility_reasons = GtsEntityCastResult._cast_instance_to_schema(
-                                item,
-                                nested_schema,
-                                base_path=(f"{base_path}.{prop}[{idx}]" if base_path else f"{prop}[{idx}]"),
-                                incompatibility_reasons=incompatibility_reasons,
+                            new_item, add_sub, rem_sub, new_incompatibility_reasons = (
+                                GtsEntityCastResult._cast_instance_to_schema(
+                                    item,
+                                    nested_schema,
+                                    base_path=(
+                                        f"{base_path}.{prop}[{idx}]"
+                                        if base_path
+                                        else f"{prop}[{idx}]"
+                                    ),
+                                    incompatibility_reasons=incompatibility_reasons,
+                                )
                             )
                             new_list.append(new_item)
                             added.extend(add_sub)
@@ -481,7 +497,12 @@ class GtsEntityCastResult:
         if prop_type in ("number", "integer"):
             errors.extend(
                 GtsEntityCastResult._check_min_max_constraint(
-                    prop, old_prop_schema, new_prop_schema, "minimum", "maximum", check_tightening
+                    prop,
+                    old_prop_schema,
+                    new_prop_schema,
+                    "minimum",
+                    "maximum",
+                    check_tightening,
                 )
             )
 
@@ -489,7 +510,12 @@ class GtsEntityCastResult:
         if prop_type == "string":
             errors.extend(
                 GtsEntityCastResult._check_min_max_constraint(
-                    prop, old_prop_schema, new_prop_schema, "minLength", "maxLength", check_tightening
+                    prop,
+                    old_prop_schema,
+                    new_prop_schema,
+                    "minLength",
+                    "maxLength",
+                    check_tightening,
                 )
             )
 
@@ -497,7 +523,12 @@ class GtsEntityCastResult:
         if prop_type == "array":
             errors.extend(
                 GtsEntityCastResult._check_min_max_constraint(
-                    prop, old_prop_schema, new_prop_schema, "minItems", "maxItems", check_tightening
+                    prop,
+                    old_prop_schema,
+                    new_prop_schema,
+                    "minItems",
+                    "maxItems",
+                    check_tightening,
                 )
             )
 
@@ -588,8 +619,10 @@ class GtsEntityCastResult:
 
             # Recursively check nested object properties
             if old_type == "object" and new_type == "object":
-                nested_compat, nested_errors = GtsEntityCastResult._check_schema_compatibility(
-                    old_prop_schema, new_prop_schema, check_backward
+                nested_compat, nested_errors = (
+                    GtsEntityCastResult._check_schema_compatibility(
+                        old_prop_schema, new_prop_schema, check_backward
+                    )
                 )
                 if not nested_compat:
                     for err in nested_errors:
@@ -615,7 +648,9 @@ class GtsEntityCastResult:
         - Cannot add enum values
         - Cannot tighten constraints (decrease max, increase min, etc.)
         """
-        return GtsEntityCastResult._check_schema_compatibility(old_schema, new_schema, check_backward=True)
+        return GtsEntityCastResult._check_schema_compatibility(
+            old_schema, new_schema, check_backward=True
+        )
 
     @staticmethod
     def _check_forward_compatibility(
@@ -634,7 +669,9 @@ class GtsEntityCastResult:
         - Cannot remove enum values
         - Cannot relax constraints (increase max, decrease min, etc.)
         """
-        return GtsEntityCastResult._check_schema_compatibility(old_schema, new_schema, check_backward=False)
+        return GtsEntityCastResult._check_schema_compatibility(
+            old_schema, new_schema, check_backward=False
+        )
 
     @staticmethod
     def _diff_objects(
@@ -697,7 +734,9 @@ class GtsEntityCastResult:
     ) -> bool:
         if not isinstance(a, dict) or not isinstance(b, dict):
             if a != b:
-                reasons.append(f"{GtsEntityCastResult._path_label(path)}: value changed")
+                reasons.append(
+                    f"{GtsEntityCastResult._path_label(path)}: value changed"
+                )
                 return False
             return True
 

@@ -1,8 +1,8 @@
-"""Tests for JsonEntity and related classes."""
+"""Tests for GtsEntity and related classes."""
 
 from gts.entities import (
-    JsonFile,
-    JsonEntity,
+    GtsFile,
+    GtsEntity,
     ValidationError,
     ValidationResult,
     DEFAULT_GTS_CONFIG,
@@ -47,13 +47,13 @@ class TestValidationResult:
         assert len(result.errors) == 1
 
 
-class TestJsonFile:
-    """Tests for JsonFile dataclass."""
+class TestGtsFile:
+    """Tests for GtsFile dataclass."""
 
     def test_json_file_single_content(self):
-        """Test JsonFile with single content."""
+        """Test GtsFile with single content."""
         content = {"name": "test"}
-        jf = JsonFile(path="/path/to/file.json", name="file.json", content=content)
+        jf = GtsFile(path="/path/to/file.json", name="file.json", content=content)
 
         assert jf.path == "/path/to/file.json"
         assert jf.name == "file.json"
@@ -61,9 +61,9 @@ class TestJsonFile:
         assert jf.sequenceContent[0] == content
 
     def test_json_file_list_content(self):
-        """Test JsonFile with list content."""
+        """Test GtsFile with list content."""
         content = [{"id": 1}, {"id": 2}, {"id": 3}]
-        jf = JsonFile(path="/path/to/file.json", name="file.json", content=content)
+        jf = GtsFile(path="/path/to/file.json", name="file.json", content=content)
 
         assert jf.sequencesCount == 3
         assert jf.sequenceContent[0] == {"id": 1}
@@ -82,13 +82,13 @@ class TestGtsConfig:
         assert "gtsType" in DEFAULT_GTS_CONFIG.schema_id_fields
 
 
-class TestJsonEntity:
-    """Tests for JsonEntity class."""
+class TestGtsEntity:
+    """Tests for GtsEntity class."""
 
     def test_entity_with_gts_id(self):
         """Test entity creation with explicit GTS ID."""
         gts_id = GtsID("gts.vendor.package.namespace.type.v1~")
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={"name": "test"},
             gts_id=gts_id,
         )
@@ -98,7 +98,7 @@ class TestJsonEntity:
 
     def test_entity_schema_detection_http(self):
         """Test schema detection via http json-schema.org URL."""
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={
                 "$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
@@ -109,7 +109,7 @@ class TestJsonEntity:
 
     def test_entity_schema_detection_https(self):
         """Test schema detection via https json-schema.org URL."""
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "type": "object",
@@ -120,7 +120,7 @@ class TestJsonEntity:
 
     def test_entity_schema_detection_gts_uri(self):
         """Test schema detection via gts:// URI."""
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={
                 "$schema": "gts://vendor.package.namespace.meta.v1~",
                 "type": "object",
@@ -131,7 +131,7 @@ class TestJsonEntity:
 
     def test_entity_schema_detection_gts_prefix(self):
         """Test schema detection via gts. prefix."""
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={
                 "$schema": "gts.vendor.package.namespace.meta.v1~",
                 "type": "object",
@@ -142,7 +142,7 @@ class TestJsonEntity:
 
     def test_entity_not_schema(self):
         """Test non-schema entity."""
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={"name": "test", "value": 42},
         )
 
@@ -150,7 +150,7 @@ class TestJsonEntity:
 
     def test_entity_id_calculation(self):
         """Test entity ID calculation from content fields."""
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={
                 "$id": "gts.vendor.package.namespace.type.v1~",
                 "name": "test",
@@ -164,7 +164,7 @@ class TestJsonEntity:
 
     def test_entity_schema_id_calculation(self):
         """Test schema ID calculation from content fields."""
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={
                 "$schema": "gts.vendor.package.namespace.type.v1~",
                 "name": "test",
@@ -177,8 +177,8 @@ class TestJsonEntity:
 
     def test_entity_label_from_file(self):
         """Test entity label derived from file."""
-        jf = JsonFile(path="/path/to/file.json", name="file.json", content={})
-        entity = JsonEntity(
+        jf = GtsFile(path="/path/to/file.json", name="file.json", content={})
+        entity = GtsEntity(
             file=jf,
             list_sequence=0,
             content={"name": "test"},
@@ -189,7 +189,7 @@ class TestJsonEntity:
     def test_entity_label_from_gts_id(self):
         """Test entity label derived from GTS ID."""
         gts_id = GtsID("gts.vendor.package.namespace.type.v1~")
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={},
             gts_id=gts_id,
         )
@@ -198,7 +198,7 @@ class TestJsonEntity:
 
     def test_entity_description_extraction(self):
         """Test description extraction from content."""
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={
                 "description": "This is a test entity",
                 "name": "test",
@@ -209,19 +209,19 @@ class TestJsonEntity:
 
     def test_entity_description_empty(self):
         """Test empty description when not present."""
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={"name": "test"},
         )
 
         assert entity.description == ""
 
 
-class TestJsonEntityRefs:
-    """Tests for GTS reference extraction in JsonEntity."""
+class TestGtsEntityRefs:
+    """Tests for GTS reference extraction in GtsEntity."""
 
     def test_extract_gts_refs_simple(self):
         """Test extracting GTS refs from content."""
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={
                 "ref": "gts.vendor.package.namespace.other.v1~",
             },
@@ -233,7 +233,7 @@ class TestJsonEntityRefs:
 
     def test_extract_gts_refs_nested(self):
         """Test extracting nested GTS refs."""
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={
                 "data": {"nested": {"ref": "gts.vendor.package.namespace.deep.v1~"}}
             },
@@ -244,7 +244,7 @@ class TestJsonEntityRefs:
 
     def test_extract_gts_refs_in_array(self):
         """Test extracting GTS refs from arrays."""
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={
                 "items": [
                     "gts.vendor.package.namespace.item0.v1~",
@@ -260,7 +260,7 @@ class TestJsonEntityRefs:
 
     def test_extract_schema_refs(self):
         """Test extracting $ref strings from schema."""
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={
                 "$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
@@ -276,7 +276,7 @@ class TestJsonEntityRefs:
 
     def test_deduplicate_refs(self):
         """Test that duplicate refs are deduplicated."""
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={
                 "ref1": "gts.vendor.package.namespace.same.v1~",
                 "ref2": "gts.vendor.package.namespace.same.v1~",
@@ -287,13 +287,13 @@ class TestJsonEntityRefs:
         assert len(entity.gts_refs) == 2
 
 
-class TestJsonEntityResolvePath:
+class TestGtsEntityResolvePath:
     """Tests for resolve_path method."""
 
     def test_resolve_path_simple(self):
         """Test simple path resolution."""
         gts_id = GtsID("gts.vendor.package.namespace.type.v1~")
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={"name": "test", "value": 42},
             gts_id=gts_id,
         )
@@ -305,7 +305,7 @@ class TestJsonEntityResolvePath:
     def test_resolve_path_nested(self):
         """Test nested path resolution."""
         gts_id = GtsID("gts.vendor.package.namespace.type.v1~")
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={"data": {"inner": "deep"}},
             gts_id=gts_id,
         )
@@ -315,13 +315,13 @@ class TestJsonEntityResolvePath:
         assert result.value == "deep"
 
 
-class TestJsonEntityGetGraph:
+class TestGtsEntityGetGraph:
     """Tests for get_graph method."""
 
     def test_get_graph_basic(self):
         """Test basic graph generation."""
         gts_id = GtsID("gts.vendor.package.namespace.type.v1~")
-        entity = JsonEntity(
+        entity = GtsEntity(
             content={
                 "ref": "gts.vendor.package.namespace.other.v1~",
             },

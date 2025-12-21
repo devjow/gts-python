@@ -41,7 +41,7 @@ class GtsFileReader(GtsReader):
 
     def _collect_files(self) -> None:
         """Collect all JSON and YAML files from the specified paths, following symlinks."""
-        valid_extensions = {'.json', '.jsonc', '.gts', '.yaml', '.yml'}
+        valid_extensions = {".json", ".jsonc", ".gts", ".yaml", ".yml"}
         seen: set[str] = set()
         collected: List[Path] = []
 
@@ -77,7 +77,7 @@ class GtsFileReader(GtsReader):
     def _load_file(self, file_path: Path) -> Any:
         """Load content from JSON or YAML file."""
         with file_path.open("r", encoding="utf-8") as f:
-            if file_path.suffix.lower() in {'.yaml', '.yml'}:
+            if file_path.suffix.lower() in {".yaml", ".yml"}:
                 return yaml.safe_load(f)
             else:
                 return json.load(f)
@@ -89,29 +89,21 @@ class GtsFileReader(GtsReader):
         try:
             content = self._load_file(file_path)
             json_file = GtsFile(
-                path=str(file_path),
-                name=file_path.name,
-                content=content
+                path=str(file_path), name=file_path.name, content=content
             )
 
             # Handle both single objects and arrays
             if isinstance(content, list):
                 for idx, item in enumerate(content):
                     entity = GtsEntity(
-                        file=json_file,
-                        list_sequence=idx,
-                        content=item,
-                        cfg=self.cfg
+                        file=json_file, list_sequence=idx, content=item, cfg=self.cfg
                     )
                     if entity.gts_id:
                         logging.debug(f"- discovered entity: {entity.gts_id.id}")
                         entities.append(entity)
             else:
                 entity = GtsEntity(
-                    file=json_file,
-                    list_sequence=None,
-                    content=content,
-                    cfg=self.cfg
+                    file=json_file, list_sequence=None, content=content, cfg=self.cfg
                 )
                 if entity.gts_id:
                     logging.debug(f"- discovered entity: {entity.gts_id.id}")

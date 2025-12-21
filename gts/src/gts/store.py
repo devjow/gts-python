@@ -115,7 +115,7 @@ class GtsStore:
         Args:
             reader: GtsReader instance to populate entities from
         """
-        self._by_id: Dict[str, JsonEntity] = {}
+        self._by_id: Dict[str, GtsEntity] = {}
         self._reader = reader
 
         # Populate entities from reader if provided
@@ -148,7 +148,7 @@ class GtsStore:
             raise ValueError("Schema type_id must end with '~'")
         # parse sanity
         gts_id = GtsID(type_id)
-        entity = JsonEntity(content=schema, gts_id=gts_id, is_schema=True)
+        entity = GtsEntity(content=schema, gts_id=gts_id, is_schema=True)
         self._by_id[type_id] = entity
 
     def get(self, entity_id: str) -> Optional[GtsEntity]:
@@ -369,7 +369,7 @@ class GtsStore:
         new_entity = self.get(new_schema_id)
 
         if not old_entity or not new_entity:
-            return JsonEntityCastResult(
+            return GtsEntityCastResult(
                 from_id=old_schema_id,
                 to_id=new_schema_id,
                 direction="unknown",
@@ -390,16 +390,16 @@ class GtsStore:
 
         # Use the cast method's compatibility checking logic
         is_backward, backward_errors = (
-            JsonEntityCastResult._check_backward_compatibility(old_schema, new_schema)
+            GtsEntityCastResult._check_backward_compatibility(old_schema, new_schema)
         )
-        is_forward, forward_errors = JsonEntityCastResult._check_forward_compatibility(
+        is_forward, forward_errors = GtsEntityCastResult._check_forward_compatibility(
             old_schema, new_schema
         )
 
         # Determine direction
-        direction = JsonEntityCastResult._infer_direction(old_schema_id, new_schema_id)
+        direction = GtsEntityCastResult._infer_direction(old_schema_id, new_schema_id)
 
-        return JsonEntityCastResult(
+        return GtsEntityCastResult(
             from_id=old_schema_id,
             to_id=new_schema_id,
             direction=direction,
