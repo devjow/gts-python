@@ -60,7 +60,6 @@ DEFAULT_GTS_CONFIG = GtsConfig(
         "id",
     ],
     schema_id_fields=[
-        "$schema",
         "gtsTid",
         "gtsType",
         "gtsT",
@@ -162,10 +161,7 @@ class GtsEntity:
             return True
         if url.startswith("https://json-schema.org/"):
             return True
-        if url.startswith("gts://"):
-            return True
-        if url.startswith("gts."):
-            return True
+        # Issue #25: strict check, no GTS IDs in $schema
         return False
 
     def resolve_path(self, path: str) -> "GtsPathResolver":
@@ -251,8 +247,12 @@ class GtsEntity:
 
         def gts_id_matcher(node: Any, path: str) -> Optional[Dict[str, str]]:
             """Match GTS ID strings."""
-            if isinstance(node, str) and GtsID.is_valid(node):
-                return {"id": node, "sourcePath": path or "root"}
+            if isinstance(node, str):
+                val = node
+                if val.startswith("gts://"):
+                    val = val[6:]
+                if GtsID.is_valid(val):
+                    return {"id": val, "sourcePath": path or "root"}
             return None
 
         self._walk_and_collect(self.content, found, gts_id_matcher)
@@ -265,8 +265,12 @@ class GtsEntity:
         def ref_matcher(node: Any, path: str) -> Optional[Dict[str, str]]:
             """Match $ref properties in dict nodes."""
             if isinstance(node, dict) and isinstance(node.get("$ref"), str):
+                val = node["$ref"]
+                # Issue #32: handle gts:// prefix
+                if val.startswith("gts://"):
+                    val = val[6:]
                 ref_path = f"{path}.$ref" if path else "$ref"
-                return {"id": node["$ref"], "sourcePath": ref_path}
+                return {"id": val, "sourcePath": ref_path}
             return None
 
         self._walk_and_collect(self.content, refs, ref_matcher)
@@ -277,7 +281,12 @@ class GtsEntity:
         if not isinstance(self.content, dict):
             return None
         v = self.content.get(field)
-        return v if isinstance(v, str) and v.strip() else None
+        if isinstance(v, str) and v.strip():
+            # Issue #31, #32: Handle gts:// prefix in fields (e.g. $id)
+            if v.startswith("gts://"):
+                v = v[6:]
+            return v
+        return None
 
     def _first_non_empty_field(self, fields: List[str]) -> Optional[Tuple[str, str]]:
         """Find first non-empty field, preferring valid GTS IDs."""

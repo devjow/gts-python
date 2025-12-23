@@ -182,6 +182,9 @@ class GtsStore:
 
         def resolve_gts_ref(uri: str) -> Dict[str, Any]:
             """Resolve a GTS ID reference to its schema content."""
+            # Issue #32: handle gts:// prefix
+            if uri.startswith("gts://"):
+                uri = uri[6:]
             try:
                 return self.get_schema_content(uri)
             except KeyError:
@@ -194,14 +197,68 @@ class GtsStore:
                 store[entity_id] = entity.content
 
         # Create RefResolver with custom handlers
-        resolver = RefResolver.from_schema(
-            schema, store=store, handlers={"": resolve_gts_ref}
-        )
+        # Issue #32: Support "gts" scheme
+        handlers = {"": resolve_gts_ref, "gts": resolve_gts_ref}
+        resolver = RefResolver.from_schema(schema, store=store, handlers=handlers)
         return resolver
 
     def items(self):
         """Return all entity ID and entity pairs."""
         return self._by_id.items()
+
+    @staticmethod
+    def _validate_schema_refs(schema: Dict[str, Any], path: str = "") -> None:
+        """
+        Validate all $ref values in a schema.
+
+        Rules:
+        - Local refs (starting with #) are always valid
+        - External refs MUST use gts:// URI format
+        - The GTS ID after gts:// must be a valid GTS identifier
+
+        Args:
+            schema: Schema content to validate
+            path: Current path in schema (for error messages)
+
+        Raises:
+            ValueError: If any $ref is invalid
+        """
+        if isinstance(schema, dict):
+            # Check $ref if present
+            if "$ref" in schema:
+                ref_uri = schema["$ref"]
+                if isinstance(ref_uri, str):
+                    current_path = f"{path}.$ref" if path else "$ref"
+
+                    # Local refs (JSON Pointer) are always valid
+                    if ref_uri.startswith("#"):
+                        pass  # Valid local ref
+                    # GTS refs must use gts:// URI format
+                    elif ref_uri.startswith("gts://"):
+                        gts_id = ref_uri[6:]  # Strip prefix
+                        # Validate the GTS ID
+                        if not GtsID.is_valid(gts_id):
+                            raise ValueError(
+                                f"Invalid $ref at '{current_path}': '{ref_uri}' contains invalid GTS identifier '{gts_id}'"
+                            )
+                    # Any other external ref is invalid
+                    else:
+                        raise ValueError(
+                            f"Invalid $ref at '{current_path}': '{ref_uri}' must be a local ref (starting with '#') "
+                            f"or a GTS URI (starting with 'gts://')"
+                        )
+
+            # Recursively validate nested objects
+            for key, value in schema.items():
+                if key == "$ref":
+                    continue  # Already validated above
+                nested_path = f"{path}.{key}" if path else key
+                GtsStore._validate_schema_refs(value, nested_path)
+
+        elif isinstance(schema, list):
+            for idx, item in enumerate(schema):
+                nested_path = f"{path}[{idx}]"
+                GtsStore._validate_schema_refs(item, nested_path)
 
     def _validate_schema_x_gts_refs(self, gts_id: str) -> None:
         """
@@ -256,15 +313,30 @@ class GtsStore:
         if not isinstance(schema_content, dict):
             raise ValueError(f"Schema '{gts_id}' content must be a dictionary")
 
+        # Issue #25: strict check, no GTS IDs in $schema
+        meta_schema_url = schema_content.get("$schema")
+        if meta_schema_url and isinstance(meta_schema_url, str):
+            if meta_schema_url.startswith("gts.") or meta_schema_url.startswith(
+                "gts://"
+            ):
+                raise ValueError(
+                    f"Invalid $schema URL '{meta_schema_url}': must be a standard JSON Schema URL, not a GTS ID"
+                )
+
         logging.info(f"Validating schema {gts_id}")
 
-        # 1. Validate against JSON Schema meta-schema
+        # 1. Validate $ref fields - must be local (#...) or gts:// URIs
+        # Issue #32: This validation must happen first to enforce strict $ref format
+        self._validate_schema_refs(schema_content, "")
+
+        # 2. Validate x-gts-ref fields (before JSON Schema validation)
+        self._validate_schema_x_gts_refs(gts_id)
+
+        # 3. Validate against JSON Schema meta-schema
         try:
             from jsonschema import Draft7Validator
             from jsonschema.validators import validator_for
 
-            # Determine which meta-schema to use based on $schema field
-            meta_schema_url = schema_content.get("$schema")
             if meta_schema_url:
                 # Use the appropriate validator for the schema version
                 validator_class = validator_for({"$schema": meta_schema_url})
@@ -276,9 +348,6 @@ class GtsStore:
             logging.info(f"Schema {gts_id} passed JSON Schema meta-schema validation")
         except Exception as e:
             raise Exception(f"JSON Schema validation failed for '{gts_id}': {str(e)}")
-
-        # 2. Validate x-gts-ref fields
-        self._validate_schema_x_gts_refs(gts_id)
 
     def validate_instance(
         self,
