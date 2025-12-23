@@ -78,7 +78,8 @@ class TestGtsConfig:
         """Test default config has expected fields."""
         assert "$id" in DEFAULT_GTS_CONFIG.entity_id_fields
         assert "gtsId" in DEFAULT_GTS_CONFIG.entity_id_fields
-        assert "$schema" in DEFAULT_GTS_CONFIG.schema_id_fields
+        # Issue #25: $schema should NOT be in schema_id_fields (only JSON Schema URLs allowed)
+        assert "$schema" not in DEFAULT_GTS_CONFIG.schema_id_fields
         assert "gtsType" in DEFAULT_GTS_CONFIG.schema_id_fields
 
 
@@ -119,7 +120,7 @@ class TestGtsEntity:
         assert entity.is_schema is True
 
     def test_entity_schema_detection_gts_uri(self):
-        """Test schema detection via gts:// URI."""
+        """Test that gts:// URI in $schema is NOT recognized as schema (Issue #25)."""
         entity = GtsEntity(
             content={
                 "$schema": "gts://vendor.package.namespace.meta.v1~",
@@ -127,10 +128,11 @@ class TestGtsEntity:
             },
         )
 
-        assert entity.is_schema is True
+        # Issue #25: GTS IDs (even with gts:// prefix) in $schema should NOT be recognized as schemas
+        assert entity.is_schema is False
 
     def test_entity_schema_detection_gts_prefix(self):
-        """Test schema detection via gts. prefix."""
+        """Test that gts. prefix in $schema is NOT recognized as schema (Issue #25)."""
         entity = GtsEntity(
             content={
                 "$schema": "gts.vendor.package.namespace.meta.v1~",
@@ -138,7 +140,8 @@ class TestGtsEntity:
             },
         )
 
-        assert entity.is_schema is True
+        # Issue #25: GTS IDs in $schema should NOT be recognized as schemas
+        assert entity.is_schema is False
 
     def test_entity_not_schema(self):
         """Test non-schema entity."""
@@ -163,17 +166,18 @@ class TestGtsEntity:
         assert entity.selected_entity_field == "$id"
 
     def test_entity_schema_id_calculation(self):
-        """Test schema ID calculation from content fields."""
+        """Test schema ID calculation from content fields (not from $schema per Issue #25)."""
         entity = GtsEntity(
             content={
-                "$schema": "gts.vendor.package.namespace.type.v1~",
+                "type": "gts.vendor.package.namespace.type.v1~",
                 "name": "test",
             },
             cfg=DEFAULT_GTS_CONFIG,
         )
 
+        # Issue #25: $schema is no longer used for schema_id, use 'type' field instead
         assert entity.schemaId == "gts.vendor.package.namespace.type.v1~"
-        assert entity.selected_schema_id_field == "$schema"
+        assert entity.selected_schema_id_field == "type"
 
     def test_entity_label_from_file(self):
         """Test entity label derived from file."""
