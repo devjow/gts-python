@@ -288,7 +288,9 @@ class GtsHttpServer:
     async def add_entity(
         self, body: Dict[str, Any] = Body(...), validate: bool = Query(False)
     ) -> JSONResponse:
-        return JSONResponse(self.ops.add_entity(body, validate=validate).to_dict())
+        result = self.ops.add_entity(body, validate=validate)
+        status_code = 200 if result.ok else 422
+        return JSONResponse(result.to_dict(), status_code=status_code)
 
     async def add_entities(
         self, body: List[Dict[str, Any]] = Body(...)

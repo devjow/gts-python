@@ -86,6 +86,7 @@ class GtsEntity:
     selected_entity_field: Optional[str] = None
     selected_schema_id_field: Optional[str] = None
     description: str = ""
+    raw_id: Optional[str] = None  # Stores raw ID value (may be non-GTS)
     schemaRefs: List[Dict[str, str]] = field(default_factory=list)
 
     def __init__(
@@ -122,6 +123,7 @@ class GtsEntity:
         # Calculate IDs if config provided
         if cfg is not None:
             idv = self._calc_json_entity_id(cfg)
+            self.raw_id = idv  # Store raw ID even if non-GTS
             self.schemaId = self._calc_json_schema_id(cfg)
             # If no valid GTS ID found in entity fields, use schema ID as fallback
             if not (idv and GtsID.is_valid(idv)):
@@ -289,13 +291,11 @@ class GtsEntity:
         return None
 
     def _first_non_empty_field(self, fields: List[str]) -> Optional[Tuple[str, str]]:
-        """Find first non-empty field, preferring valid GTS IDs."""
-        # First pass: look for valid GTS IDs
-        for f in fields:
-            v = self._get_field_value(f)
-            if v and GtsID.is_valid(v):
-                return f, v
-        # Second pass: any non-empty string
+        """Find first non-empty field value in order.
+        
+        Returns the first non-empty string value without preferring GTS IDs.
+        This ensures UUID and non-GTS values are returned when they appear first.
+        """
         for f in fields:
             v = self._get_field_value(f)
             if v:
@@ -311,22 +311,74 @@ class GtsEntity:
             return f"{self.file.path}#{self.list_sequence}"
         return self.file.path if self.file else ""
 
-    def _calc_json_schema_id(self, cfg: GtsConfig) -> str:
+    def _calc_json_schema_id(self, cfg: GtsConfig) -> Optional[str]:
+        """Calculate schema_id based on entity type and content.
+        
+        Rules:
+        - For schemas: extract parent from $id chain, or fallback to $schema
+        - For instances: look for type/schema fields in schema_id_fields
+        - Return None if no schema reference found for instances
+        """
+        # For schemas, derive from the entity ID (parent of chain)
+        if self.is_schema:
+            # Get entity ID (the $id field for schemas)
+            idv = self._get_field_value("$id")
+            if idv and GtsID.is_valid(idv):
+                # Check if it's a chained ID (derived schema)
+                last_tilde = idv.rfind("~")
+                if last_tilde > 0:
+                    # Find the previous segment (parent)
+                    parent_end = last_tilde
+                    # Check if there's another segment before this one
+                    prefix = idv[:parent_end]
+                    prev_tilde = prefix.rfind("~")
+                    if prev_tilde > 0:
+                        # Has a parent chain - return first segment (base type)
+                        self.selected_schema_id_field = "$id"
+                        return prefix[:prev_tilde + 1]
+                    else:
+                        # Single segment schema - base type, return $schema
+                        schema_val = self._get_field_value("$schema")
+                        if schema_val:
+                            self.selected_schema_id_field = "$schema"
+                            return schema_val
+            # Fallback to $schema for schemas
+            schema_val = self._get_field_value("$schema")
+            if schema_val:
+                self.selected_schema_id_field = "$schema"
+                return schema_val
+            return None
+        
+        # For instances, look in schema_id_fields
         cand = self._first_non_empty_field(cfg.schema_id_fields)
         if cand:
             self.selected_schema_id_field = cand[0]
-            return cand[1]
-        idv = self._calc_json_entity_id(cfg)
-        if idv and isinstance(idv, str) and GtsID.is_valid(idv):
-            if idv.endswith("~"):
-                return idv
-            last = idv.rfind("~")
-            if last > 0:
-                self.selected_schema_id_field = self.selected_entity_field
-                return idv[: last + 1]
-        if self.file and self.list_sequence is not None:
-            return f"{self.file.path}#{self.list_sequence}"
-        return self.file.path if self.file else ""
+            schema_id = cand[1]
+            # If schema_id is a chained GTS ID, extract parent (base type)
+            if GtsID.is_valid(schema_id):
+                last_tilde = schema_id.rfind("~")
+                if last_tilde > 0 and not schema_id.endswith("~"):
+                    # It's an instance ID in type field - extract schema part
+                    return schema_id[:last_tilde + 1]
+            return schema_id
+        
+        # For instances with chained GTS ID in entity_id field, derive schema_id
+        # BUT only if the ID is a proper chained instance ID (not a single schema segment)
+        if self.selected_entity_field and self.selected_entity_field != "$id":
+            # Only derive from fields like "id", not from "$id" (which is for schemas)
+            idv = self._get_field_value(self.selected_entity_field)
+            if idv and GtsID.is_valid(idv):
+                # Check if it's a chained ID (instance ID) vs single segment (schema ID)
+                if not idv.endswith("~"):
+                    # Instance ID: extract schema part (everything up to and including last ~)
+                    last_tilde = idv.rfind("~")
+                    if last_tilde > 0:
+                        self.selected_schema_id_field = self.selected_entity_field
+                        return idv[:last_tilde + 1]
+        
+        # No schema reference found for instance
+        # Note: Single-segment schema IDs in $id don't count as schema_id for instances
+        return None
 
     def _extract_uuid_from_content(self) -> Optional[str]:
         """Extract a UUID value from content to use as instance identifier."""
