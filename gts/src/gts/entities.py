@@ -292,7 +292,7 @@ class GtsEntity:
 
     def _first_non_empty_field(self, fields: List[str]) -> Optional[Tuple[str, str]]:
         """Find first non-empty field value in order.
-        
+
         Returns the first non-empty string value without preferring GTS IDs.
         This ensures UUID and non-GTS values are returned when they appear first.
         """
@@ -313,7 +313,7 @@ class GtsEntity:
 
     def _calc_json_schema_id(self, cfg: GtsConfig) -> Optional[str]:
         """Calculate schema_id based on entity type and content.
-        
+
         Rules:
         - For schemas: extract parent from $id chain, or fallback to $schema
         - For instances: look for type/schema fields in schema_id_fields
@@ -335,7 +335,7 @@ class GtsEntity:
                     if prev_tilde > 0:
                         # Has a parent chain - return first segment (base type)
                         self.selected_schema_id_field = "$id"
-                        return prefix[:prev_tilde + 1]
+                        return prefix[: prev_tilde + 1]
                     else:
                         # Single segment schema - base type, return $schema
                         schema_val = self._get_field_value("$schema")
@@ -348,7 +348,7 @@ class GtsEntity:
                 self.selected_schema_id_field = "$schema"
                 return schema_val
             return None
-        
+
         # For instances, look in schema_id_fields
         cand = self._first_non_empty_field(cfg.schema_id_fields)
         if cand:
@@ -359,9 +359,9 @@ class GtsEntity:
                 last_tilde = schema_id.rfind("~")
                 if last_tilde > 0 and not schema_id.endswith("~"):
                     # It's an instance ID in type field - extract schema part
-                    return schema_id[:last_tilde + 1]
+                    return schema_id[: last_tilde + 1]
             return schema_id
-        
+
         # For instances with chained GTS ID in entity_id field, derive schema_id
         # BUT only if the ID is a proper chained instance ID (not a single schema segment)
         if self.selected_entity_field and self.selected_entity_field != "$id":
@@ -374,8 +374,8 @@ class GtsEntity:
                     last_tilde = idv.rfind("~")
                     if last_tilde > 0:
                         self.selected_schema_id_field = self.selected_entity_field
-                        return idv[:last_tilde + 1]
-        
+                        return idv[: last_tilde + 1]
+
         # No schema reference found for instance
         # Note: Single-segment schema IDs in $id don't count as schema_id for instances
         return None

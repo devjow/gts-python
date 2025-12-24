@@ -316,17 +316,15 @@ class GtsOps:
         self, content: Dict[str, Any], validate: bool = False
     ) -> GtsAddEntityResult:
         entity = GtsEntity(content=content, cfg=self.cfg)
-        
+
         # For instances (non-schemas), require an id field
         if not entity.is_schema:
             # Instance must have an id from entity_id_fields (not just derived from schema)
             if not entity.raw_id or not entity.selected_entity_field:
                 return GtsAddEntityResult(
-                    ok=False, 
-                    error="Instance must have an id field",
-                    is_schema=False
+                    ok=False, error="Instance must have an id field", is_schema=False
                 )
-        
+
         # Schemas MUST have a valid GTS ID
         if entity.is_schema and not entity.gts_id:
             return GtsAddEntityResult(

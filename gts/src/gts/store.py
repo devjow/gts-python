@@ -135,7 +135,7 @@ class GtsStore:
 
     def register(self, entity: GtsEntity) -> None:
         """Register a GtsEntity in the store.
-        
+
         If entity has a valid gts_id, use that as the key.
         Otherwise, use raw_id for non-GTS entities.
         """
