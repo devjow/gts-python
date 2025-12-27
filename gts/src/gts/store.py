@@ -134,10 +134,18 @@ class GtsStore:
                 self._by_id[entity.gts_id.id] = entity
 
     def register(self, entity: GtsEntity) -> None:
-        """Register a JsonEntity in the store."""
-        if not entity.gts_id or not entity.gts_id.id:
-            raise ValueError("Entity must have a valid gts_id")
-        self._by_id[entity.gts_id.id] = entity
+        """Register a GtsEntity in the store.
+
+        If entity has a valid gts_id, use that as the key.
+        Otherwise, use raw_id for non-GTS entities.
+        """
+        if entity.gts_id and entity.gts_id.id:
+            self._by_id[entity.gts_id.id] = entity
+        elif entity.raw_id:
+            # Allow non-GTS entities with raw_id (e.g., UUIDs or simple strings)
+            self._by_id[entity.raw_id] = entity
+        else:
+            raise ValueError("Entity must have a valid gts_id or raw_id")
 
     def register_schema(self, type_id: str, schema: Dict[str, Any]) -> None:
         """

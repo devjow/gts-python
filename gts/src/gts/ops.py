@@ -199,6 +199,7 @@ class GtsAddEntityResult:
             result["is_schema"] = self.is_schema
         else:
             result["error"] = self.error
+            result["is_schema"] = self.is_schema
         return result
 
 
@@ -315,12 +316,22 @@ class GtsOps:
         self, content: Dict[str, Any], validate: bool = False
     ) -> GtsAddEntityResult:
         entity = GtsEntity(content=content, cfg=self.cfg)
-        if not entity.gts_id:
+
+        # For instances (non-schemas), require an id field
+        if not entity.is_schema:
+            # Instance must have an id from entity_id_fields (not just derived from schema)
+            if not entity.raw_id or not entity.selected_entity_field:
+                return GtsAddEntityResult(
+                    ok=False, error="Instance must have an id field", is_schema=False
+                )
+
+        # Schemas MUST have a valid GTS ID
+        if entity.is_schema and not entity.gts_id:
             return GtsAddEntityResult(
-                ok=False, error="Unable to detect GTS ID in entity"
+                ok=False, error="Unable to detect GTS ID in schema"
             )
 
-        # Register the entity first
+        # Register the entity (use raw_id for non-GTS instances)
         self.store.register(entity)
 
         # Always validate schemas
@@ -333,7 +344,7 @@ class GtsOps:
                 )
 
         # If validation is requested, validate the instance as well
-        if validate and not entity.is_schema:
+        if validate and not entity.is_schema and entity.gts_id:
             try:
                 self.store.validate_instance(entity.gts_id.id)
             except Exception as e:
@@ -341,9 +352,11 @@ class GtsOps:
                     ok=False, error=f"Validation failed: {str(e)}"
                 )
 
+        # Return gts_id if available, otherwise raw_id
+        entity_id = entity.gts_id.id if entity.gts_id else (entity.raw_id or "")
         return GtsAddEntityResult(
             ok=True,
-            id=entity.gts_id.id,
+            id=entity_id,
             schema_id=entity.schemaId,
             is_schema=entity.is_schema,
         )
@@ -460,8 +473,12 @@ class GtsOps:
 
     def extract_id(self, content: Dict[str, Any]) -> GtsExtractIdResult:
         entity = GtsEntity(content=content, cfg=self.cfg)
+        # Always use raw_id - that's the actual value found in the entity_id_fields
+        # Note: gts_id may be derived from schemaId as fallback, but extract-id
+        # should return what was actually in the selected field
+        id_value = entity.raw_id or ""
         return GtsExtractIdResult(
-            id=entity.gts_id.id if entity.gts_id else "",
+            id=id_value,
             schema_id=entity.schemaId,
             selected_entity_field=entity.selected_entity_field,
             selected_schema_id_field=entity.selected_schema_id_field,
