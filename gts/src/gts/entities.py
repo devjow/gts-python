@@ -349,7 +349,30 @@ class GtsEntity:
                 return schema_val
             return None
 
-        # For instances, look in schema_id_fields
+        # PRIORITY 1: Check entity_id_fields for a GTS ID (gtsId, id, etc.)
+        # If found and it's a chained ID, extract schema from the chain
+        # NOTE: Skip $id field for instances - $id should only influence schema_id for schemas
+        entity_id_cand = self._first_non_empty_field(cfg.entity_id_fields)
+        if entity_id_cand and GtsID.is_valid(entity_id_cand[1]):
+            # Skip $id for non-schemas: $id without $schema means the doc is an instance
+            # and $id should not be used to derive schema_id
+            if entity_id_cand[0] == "$id" and not self.is_schema:
+                pass  # Skip to PRIORITY 2
+            else:
+                idv = entity_id_cand[1]
+                # If already a type id (ends with '~'), use it as-is
+                if idv.endswith("~"):
+                    self.selected_schema_id_field = entity_id_cand[0]
+                    return idv
+                # For chained IDs (well-known instances), extract schema:
+                # everything up to and including last '~'
+                last_tilde = idv.rfind("~")
+                if last_tilde > 0:
+                    self.selected_schema_id_field = entity_id_cand[0]
+                    return idv[: last_tilde + 1]
+
+        # PRIORITY 2: Fall back to explicit schema_id_fields (type, gtsTid, etc.)
+        # Only check these if no chained GTS ID was found in entity_id_fields
         cand = self._first_non_empty_field(cfg.schema_id_fields)
         if cand:
             self.selected_schema_id_field = cand[0]
@@ -362,22 +385,7 @@ class GtsEntity:
                     return schema_id[: last_tilde + 1]
             return schema_id
 
-        # For instances with chained GTS ID in entity_id field, derive schema_id
-        # BUT only if the ID is a proper chained instance ID (not a single schema segment)
-        if self.selected_entity_field and self.selected_entity_field != "$id":
-            # Only derive from fields like "id", not from "$id" (which is for schemas)
-            idv = self._get_field_value(self.selected_entity_field)
-            if idv and GtsID.is_valid(idv):
-                # Check if it's a chained ID (instance ID) vs single segment (schema ID)
-                if not idv.endswith("~"):
-                    # Instance ID: extract schema part (everything up to and including last ~)
-                    last_tilde = idv.rfind("~")
-                    if last_tilde > 0:
-                        self.selected_schema_id_field = self.selected_entity_field
-                        return idv[: last_tilde + 1]
-
         # No schema reference found for instance
-        # Note: Single-segment schema IDs in $id don't count as schema_id for instances
         return None
 
     def _extract_uuid_from_content(self) -> Optional[str]:
