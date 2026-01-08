@@ -212,6 +212,17 @@ class GtsID:
             self.gts_id_segments.append(GtsIdSegment(i + 1, offset, parts[i]))
             offset += len(parts[i])
 
+        # Issue #37: Single-segment instance IDs are not allowed
+        # An instance ID (not ending with ~) must be chained (have at least 2 segments)
+        if not self.id.endswith("~") and len(self.gts_id_segments) == 1:
+            # Check if it's a wildcard (wildcards are allowed as single segment)
+            if not any(seg.is_wildcard for seg in self.gts_id_segments):
+                raise GtsInvalidId(
+                    id,
+                    "Single-segment instance IDs are not allowed. "
+                    "Instance IDs must be chained (e.g., type~instance).",
+                )
+
     @property
     def is_type(self) -> bool:
         return self.id.endswith("~")

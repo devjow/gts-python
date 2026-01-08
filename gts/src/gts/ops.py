@@ -23,9 +23,15 @@ class GtsIdValidationResult:
     id: str
     valid: bool
     error: str = ""
+    is_wildcard: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"id": self.id, "valid": self.valid, "error": self.error}
+        return {
+            "id": self.id,
+            "valid": self.valid,
+            "error": self.error,
+            "is_wildcard": self.is_wildcard,
+        }
 
 
 @dataclass
@@ -60,6 +66,8 @@ class GtsIdParseResult:
     ok: bool
     segments: List[GtsIdSegment] = field(default_factory=list)
     error: str = ""
+    is_wildcard: bool = False
+    is_schema: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -67,6 +75,8 @@ class GtsIdParseResult:
             "ok": self.ok,
             "segments": [s.to_dict() for s in self.segments],
             "error": self.error,
+            "is_wildcard": self.is_wildcard,
+            "is_schema": self.is_schema,
         }
 
 
@@ -331,6 +341,18 @@ class GtsOps:
                 ok=False, error="Unable to detect GTS ID in schema"
             )
 
+        # Validate $id prefix for schemas: must use gts:// URI, not plain gts.
+        if entity.is_schema and validate:
+            raw_id = content.get("$id", "")
+            if isinstance(raw_id, str):
+                # Reject plain gts. prefix (without gts://)
+                if raw_id.startswith("gts.") and not raw_id.startswith("gts://"):
+                    return GtsAddEntityResult(
+                        ok=False,
+                        error="Schema $id must use gts:// URI format, not plain gts. prefix",
+                        is_schema=True,
+                    )
+
         # Register the entity (use raw_id for non-GTS instances)
         self.store.register(entity)
 
@@ -376,15 +398,29 @@ class GtsOps:
             return GtsAddSchemaResult(ok=False, error=str(e))
 
     def validate_id(self, gts_id: str) -> GtsIdValidationResult:
+        # Check if it's a wildcard pattern (contains *)
+        is_wildcard = "*" in gts_id
         try:
-            _ = GtsID(gts_id)
-            return GtsIdValidationResult(id=gts_id, valid=True)
+            if is_wildcard:
+                # For wildcards, try parsing as GtsWildcard
+                _ = GtsWildcard(gts_id)
+            else:
+                _ = GtsID(gts_id)
+            return GtsIdValidationResult(id=gts_id, valid=True, is_wildcard=is_wildcard)
         except Exception as e:
-            return GtsIdValidationResult(id=gts_id, valid=False, error=str(e))
+            return GtsIdValidationResult(
+                id=gts_id, valid=False, error=str(e), is_wildcard=is_wildcard
+            )
 
     def parse_id(self, gts_id: str) -> GtsIdParseResult:
+        # Check if it's a wildcard pattern (contains *)
+        is_wildcard = "*" in gts_id
         try:
-            segs = GtsID(gts_id).gts_id_segments
+            if is_wildcard:
+                parsed = GtsWildcard(gts_id)
+            else:
+                parsed = GtsID(gts_id)
+            segs = parsed.gts_id_segments
             segments = [
                 GtsIdSegment(
                     vendor=s.vendor,
@@ -397,12 +433,27 @@ class GtsOps:
                 )
                 for s in segs
             ]
-            return GtsIdParseResult(id=gts_id, ok=True, segments=segments)
+            # is_schema: true if ends with ~ and not a wildcard ending with ~*
+            is_schema = gts_id.endswith("~") and not is_wildcard
+            return GtsIdParseResult(
+                id=gts_id,
+                ok=True,
+                segments=segments,
+                is_wildcard=is_wildcard,
+                is_schema=is_schema,
+            )
         except Exception as e:
-            return GtsIdParseResult(id=gts_id, ok=False, error=str(e))
+            return GtsIdParseResult(
+                id=gts_id, ok=False, error=str(e), is_wildcard=is_wildcard
+            )
 
     def match_id_pattern(self, candidate: str, pattern: str) -> GtsIdMatchResult:
         try:
+            # If candidate contains '*', validate it as a wildcard pattern
+            # This catches malformed wildcards like 'a*' (wildcard not on token boundary)
+            if "*" in candidate:
+                # Validate candidate as a wildcard pattern first
+                _ = GtsWildcard(candidate)
             c = GtsID(candidate)
             p = GtsWildcard(pattern)
             match = c.wildcard_match(p)
